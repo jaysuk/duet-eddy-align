@@ -28,7 +28,11 @@ working control panel:
   **"point"** mode measures every tool against a fixed carriage datum instead — captured as a raw
   position snapshot (jog the bare carriage to trigger a fixed reference like a homing switch that
   never touches a tool, then Capture), not a coil measurement, mirroring exactly how
-  duet-tool-align's own "Capture datum" works.
+  duet-tool-align's own "Capture datum" works. In "tool" mode, **the reference tool still gets
+  scanned like any other tool** (own row, own Scan button) — by default (`zeroReferenceOffset: true`)
+  its own fresh capture becomes the new zero baseline rather than inheriting whatever G10 it already
+  had, so a from-scratch calibration never silently trusts an unverified offset. Turn that off to
+  keep the reference tool's existing G10 instead, matching duet-tool-align's original convention.
 
 Not built yet / still open: baseline correction isn't wired into the scan workflow (deferred until a
 real sweep's background shape is characterised — the 30mm metal-proximity warning in

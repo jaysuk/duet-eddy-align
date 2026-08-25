@@ -116,9 +116,16 @@
           <v-col cols="12" sm="4" class="d-flex align-center">
             <v-switch v-model="cfg.invertOffsets" density="compact" hide-details :label="$t('plugins.duetEddyAlign.reference.invert')" />
           </v-col>
+          <v-col v-if="cfg.referenceMode === 'tool'" cols="12" sm="8" class="d-flex align-center">
+            <v-switch v-model="cfg.zeroReferenceOffset" density="compact" hide-details
+              :label="$t('plugins.duetEddyAlign.reference.zeroReference')" />
+          </v-col>
         </v-row>
         <div v-if="cfg.referenceMode === 'point'" class="text-caption text-medium-emphasis mb-2">
           {{ $t("plugins.duetEddyAlign.reference.captureDatumHint") }}
+        </div>
+        <div v-else-if="cfg.zeroReferenceOffset" class="text-caption text-medium-emphasis mb-2">
+          {{ $t("plugins.duetEddyAlign.reference.zeroReferenceHint") }}
         </div>
 
         <v-btn size="small" color="primary" variant="tonal" class="mb-3" :disabled="!tools.length"
@@ -192,9 +199,9 @@ import { useMachineStore } from "@/stores/machine";
 import { useConfig } from "../model/config";
 import { startPolling } from "../model/liveProbe";
 import { axisPosition, toolList, useEddyMachineIO } from "../model/machineIO";
+import { computeOffsetRows } from "../model/offsets";
 import { jogAxisCode, makeProbeReader } from "../model/orchestrator";
 import { goToProbePosition, scanTool, type ScanCapture } from "../model/scanWorkflow";
-import { computeToolOffset, formatG10, type ToolOffset } from "../util/toolAlign";
 
 const machineStore = useMachineStore();
 const cfg = useConfig();
@@ -307,38 +314,7 @@ function onCaptureDatum(): void {
 
 // --- Offsets ---------------------------------------------------------------------------------
 
-function referenceCapture(): ScanCapture | null {
-	return cfg.referenceMode === "point" ? datumCapture.value : (captures[cfg.referenceTool] ?? null);
-}
-
-/** The offset the reference itself carries forward: its own existing G10 in "tool" mode (so the
- *  reference tool keeps its offset unchanged), or zero in "point" mode (a fixed carriage datum has
- *  no G10 offset of its own — every tool including the one used to capture it is offset from it). */
-function baseRefOffset(): ToolOffset {
-	if (cfg.referenceMode === "point") return { x: 0, y: 0 };
-	const refTool = tools.value.find((t) => t.number === cfg.referenceTool);
-	return { x: refTool?.curX ?? 0, y: refTool?.curY ?? 0 };
-}
-
-const rows = computed(() => {
-	const ref = referenceCapture();
-	const refOffset = baseRefOffset();
-	return tools.value.map((t) => {
-		const capture = captures[t.number] ?? null;
-		const offset = capture && ref
-			? computeToolOffset({ x: ref.x, y: ref.y }, { x: capture.x, y: capture.y }, refOffset, cfg.invertOffsets)
-			: null;
-		return {
-			number: t.number,
-			name: t.name,
-			curX: t.curX,
-			curY: t.curY,
-			capture,
-			g10: offset ? formatG10(t.number, offset) : null,
-		};
-	});
-});
-
+const rows = computed(() => computeOffsetRows(tools.value, captures, datumCapture.value, cfg));
 const anyApplicable = computed(() => rows.value.some((r) => r.g10));
 
 const confirmOpen = ref(false);

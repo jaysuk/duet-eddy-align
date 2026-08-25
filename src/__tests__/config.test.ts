@@ -10,5 +10,6 @@ describe("defaultConfig", () => {
 		expect(cfg.saveCommand).toBe("M500 P10");
 		expect(cfg.referenceMode).toBe("tool");
 		expect(cfg.referenceTool).toBe(0);
+		expect(cfg.zeroReferenceOffset).toBe(true); // scan the reference tool fresh by default, don't trust a stale G10
 	});
 });

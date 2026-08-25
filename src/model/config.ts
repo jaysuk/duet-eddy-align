@@ -35,14 +35,23 @@ export interface EddyAlignConfig {
 
 	/**
 	 * How the 0,0 origin is defined — same two modes as duet-tool-align:
-	 *  - "tool":  a reference tool (e.g. T0). Its captured centre is the origin; other tools are
-	 *             measured relative to it and the reference tool itself keeps its existing G10.
-	 *  - "point": a fixed carriage datum, captured once via "Capture datum" (scans whatever tool is
-	 *             currently loaded, in place, without a T-command). EVERY tool including the datum's
-	 *             own tool is then offset from it.
+	 *  - "tool":  a reference tool (e.g. T0), scanned the same as any other tool. Other tools are
+	 *             measured relative to its captured position, and by default the reference tool
+	 *             itself keeps its existing G10 (see zeroReferenceOffset to change that).
+	 *  - "point": a fixed carriage datum — e.g. a homing switch that never touches a tool — captured
+	 *             once via "Capture datum" as a raw position snapshot, no scan involved. EVERY tool,
+	 *             including whichever one would otherwise be the reference, is offset from it.
 	 */
 	referenceMode: "tool" | "point";
 	referenceTool: number;
+	/**
+	 * "tool" mode only: treat the reference tool's offset as zero instead of inheriting its current
+	 * G10. Off (the default) matches duet-tool-align's convention — the reference tool keeps whatever
+	 * mapping it already established. On is for a from-scratch calibration where that existing G10
+	 * shouldn't be trusted: the reference tool still gets scanned like any other, and its own
+	 * freshly-captured position becomes the new baseline instead of a value nobody has verified.
+	 */
+	zeroReferenceOffset: boolean;
 	/** Negate computed offsets (machine/firmware sign convention escape hatch). */
 	invertOffsets: boolean;
 
@@ -75,6 +84,7 @@ export function defaultConfig(): EddyAlignConfig {
 		scanStep: 0.5,
 		referenceMode: "tool",
 		referenceTool: 0,
+		zeroReferenceOffset: true,
 		invertOffsets: false,
 		xyStep: 0.5,
 		zStep: 0.1,
