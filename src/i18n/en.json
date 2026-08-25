@@ -2,8 +2,59 @@
 	"title": "Eddy Align",
 	"menuCaption": "Eddy Align",
 	"status": {
-		"heading": "Scan-based tool alignment",
-		"body": "Uses the fixed-mount Scanning Z Probe to locate each tool's nozzle center by sweeping it across the coil, instead of a camera. The scan-orchestration and UI are still being built — see the repo for the peak-fitting math that's already in place and unit-tested.",
 		"repoLink": "View source on GitHub"
+	},
+	"tabs": {
+		"setup": "Setup",
+		"scan": "Scan & Offsets"
+	},
+	"live": {
+		"start": "Start live reading",
+		"stop": "Stop",
+		"hint": "Raw, unfiltered probe reading — watch this while you jog a nozzle over the coil to sanity-check the sensor before trusting an automated scan."
+	},
+	"jog": {
+		"label": "Manual jog"
+	},
+	"setup": {
+		"probePos": "Probe position",
+		"setProbeXY": "Set probe X/Y (current position)",
+		"setProbeZ": "Set scan height Z (current position)",
+		"goToProbe": "Go to probe position",
+		"probeIndex": "Probe number (M558 K)",
+		"safeZ": "Safe Z (blank = no lift)",
+		"useG53": "Travel in machine coordinates (G53)",
+		"travelFeed": "Travel feed (mm/min)",
+		"jogFeed": "Jog feed (mm/min)",
+		"settleMs": "Settle time (ms)",
+		"scanHalfWidth": "Scan half-width (mm)",
+		"scanStep": "Scan step (mm)",
+		"xyStep": "Manual jog step, X/Y (mm)",
+		"zStep": "Manual jog step, Z (mm)"
+	},
+	"reference": {
+		"mode": "Reference",
+		"tool": "Reference tool",
+		"invert": "Invert offsets",
+		"captureDatum": "Capture datum",
+		"noDatum": "Not captured yet"
+	},
+	"tools": {
+		"tool": "Tool",
+		"current": "Current G10",
+		"captured": "Captured (X, Y)",
+		"confidence": "Confidence",
+		"offset": "New G10",
+		"scan": "Scan",
+		"scanAll": "Scan all tools",
+		"empty": "No tools found in the object model."
+	},
+	"offsets": {
+		"applyAll": "Apply all",
+		"save": "Save (M500 P10)",
+		"confirmTitle": "Send this to the printer?",
+		"confirmBody": "The following G-code will be sent:",
+		"confirmCancel": "Cancel",
+		"confirmConfirm": "Send"
 	}
 }

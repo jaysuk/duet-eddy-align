@@ -35,8 +35,10 @@ export interface SweepParams {
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /** Relative single-axis jog wrapped to preserve absolute mode and finished with M400 so motion
- *  completes before the next read — same motion contract as duet-tool-align's jogCode. */
-export function jogAxisCode(axis: "X" | "Y", d: number, feed: number): string {
+ *  completes before the next read — same motion contract as duet-tool-align's jogCode. Accepts Z too
+ *  (unlike sweepLine, which is XY-only) since the Setup panel's manual jog buttons reuse this for
+ *  Z-focus jogs. */
+export function jogAxisCode(axis: "X" | "Y" | "Z", d: number, feed: number): string {
 	return `M120\nG91\nG1 ${axis}${d.toFixed(4)} F${feed}\nG90\nM121\nM400`;
 }
 

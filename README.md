@@ -10,19 +10,25 @@ resonant-frequency response; fitting that response's sub-sample peak per tool gi
 
 ## Status
 
-**v0.1.0 — scaffold.** The signal-processing core (`src/model/eddyScan/`) is complete and unit-tested:
-baseline removal, Savitzky-Golay smoothing, 1D/2D sub-sample peak fitting (parabolic, Gaussian,
-centroid), and confidence scoring. `src/model/orchestrator.ts` sequences a per-tool **cross scan**
-(sweep X, sweep Y, Gaussian-fit each) behind injected `MachineIO`/`ReadProbe` seams — its exact
-G-code and an end-to-end synthetic recovery are both unit tested — using **triggered step-and-sample**
-(jog, `M400`, read one settled value) rather than a continuous synced sweep, since its standalone-Duet
-target means it can't assume a native/DSF sampling path. `makeProbeReader()` is the concrete
-`ReadProbe` implementation, verified directly against the RepRapFirmware source (not guessed) — see
-[docs/open-questions.md](docs/open-questions.md) for the file/line citations: it queries
-`sensors.probes[n].value[0]` via `M409`, a live, unfiltered raw reading for a scanning probe. Not
-built yet: the scan UI, and baseline correction wired into the orchestrator (deferred until a real
-sweep's background shape is characterised on hardware) — the remaining open items are physical
-scan parameters, not firmware/API questions.
+**v0.2.0 — first real UI, ready to test on hardware.** The signal-processing core
+(`src/model/eddyScan/`) and `src/model/orchestrator.ts`'s cross-scan sequencing are complete and unit
+tested, `makeProbeReader()` is verified directly against RepRapFirmware source (see
+[docs/open-questions.md](docs/open-questions.md)), and `src/widgets/EddyAlignWidget.vue` now gives a
+working control panel:
+
+- **Setup tab** — a live, polling raw-probe-reading display (the fastest way to confirm the sensor +
+  `M409` query work on your hardware before trusting anything automated), manual X/Y/Z jog, saved
+  probe position (set from current machine position, or jog back to it), and all the scan/motion
+  settings (probe `K` index, feeds, settle time, scan window, safe-Z travel).
+- **Scan & Offsets tab** — per-tool or scan-all, a results table (captured position, confidence,
+  computed `G10`), reference-tool or fixed-datum-point modes, and Apply/Save with the same
+  show-the-exact-command confirm dialog `duet-tool-align` uses. `computeToolOffset`/`formatG10`
+  (`src/util/toolAlign.ts`) are ported verbatim from there, same sign convention.
+
+Not built yet / still open: baseline correction isn't wired into the scan workflow (deferred until a
+real sweep's background shape is characterised — the 30mm metal-proximity warning in
+[docs/open-questions.md](docs/open-questions.md) says it'll matter), and the expected scan `σ`/window
+size are defaults, not calibrated. No self-update or embeddable-widget wiring yet either.
 
 ## Math
 

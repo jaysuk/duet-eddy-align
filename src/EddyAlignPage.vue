@@ -4,11 +4,7 @@
       <v-card-title class="text-subtitle-1 d-flex align-center">
         <v-icon class="mr-2">mdi-magnet</v-icon>
         {{ $t("plugins.duetEddyAlign.title") }}
-      </v-card-title>
-      <v-divider />
-      <v-card-text>
-        <p class="text-body-1 mb-2">{{ $t("plugins.duetEddyAlign.status.heading") }}</p>
-        <p class="text-body-2 text-medium-emphasis">{{ $t("plugins.duetEddyAlign.status.body") }}</p>
+        <v-spacer />
         <v-btn
           variant="text"
           size="small"
@@ -19,12 +15,16 @@
         >
           {{ $t("plugins.duetEddyAlign.status.repoLink") }}
         </v-btn>
-      </v-card-text>
+      </v-card-title>
+      <v-divider />
+      <EddyAlignWidget />
     </v-card>
   </v-container>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import EddyAlignWidget from "./widgets/EddyAlignWidget.vue";
+</script>
 
 <style scoped>
 .ea-page-card { display: flex; flex-direction: column; }
