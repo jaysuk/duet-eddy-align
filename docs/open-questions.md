@@ -65,6 +65,14 @@ Duet3D's own published numbers:
   Gaussian-response shape and sweep width for lateral (XY) coil coupling, since that's not what the
   SZP is designed or documented for. `src/model/eddyScan/quality.ts`'s `sigmaNominal` still needs a
   real sweep to calibrate.
+- Same "pending real hardware" status for two more defaults with no way to derive a correct value
+  from documentation alone: `config.ts`'s `weightedQuadraticSigma` (the weighted-quadratic fit's
+  Gaussian weighting bandwidth) and `refineTolerance` (goal-seeking refinement's convergence
+  threshold, `src/model/scanWorkflow.ts`'s `runRefinedScan`). `refineTolerance`'s correct default sits
+  just above measured run-to-run spread — tighter and refinement can never converge (it'll always hit
+  `refineMaxPasses` instead), looser and it stops before actually improving on the coarse scan. The
+  repeatability check (`repeatability.ts`) is exactly the tool to measure that spread with once real
+  hardware numbers exist.
 
 ## Still open (2026-08-25): response polarity and DC magnitude on real hardware
 
@@ -116,7 +124,10 @@ Three Klipper/Kalico plugins do the LDC1612-coil equivalent of this problem. All
   motion-history API over the object model the way Klipper's internal step-compression does, which is
   a concrete reason continuous-sweep sampling is harder on RRF than on Klipper, not just a platform
   preference (see "Decided: platform and sampling strategy" above). `EDDY_SEEK_ACCURACY` is the same
-  repeatability idea as jaak0b's `EDDY_REPEATABILITY`.
+  repeatability idea as jaak0b's `EDDY_REPEATABILITY`. Its coarse-to-fine idea (probe, move to the
+  fitted centre, halve the spacing, repeat) *was* adopted, just applied to this repo's existing
+  cross-scan rather than a 2×2D grid — `scanWorkflow.ts`'s `runRefinedScan`, opt-in via
+  `cfg.refineScan`.
 
 RRF just needs the sensor/orchestration layer these plugins build in Python, since `M558 P11` already
 does the sensor/driver layer natively (see "Resolved" above) — no `duet-webcam-bridge`-style external

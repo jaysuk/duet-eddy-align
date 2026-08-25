@@ -10,29 +10,41 @@ resonant-frequency response; fitting that response's sub-sample peak per tool gi
 
 ## Status
 
-**v0.6.0 — ready to test on hardware**, with two fit strategies and repeatability checking built in
-from a review of Klipper/Kalico prior art (see [docs/open-questions.md](docs/open-questions.md)'s
-Prior art section). The signal-processing core (`src/model/eddyScan/`) and
-`src/model/orchestrator.ts`'s cross-scan sequencing are complete and unit tested, `makeProbeReader()`
-is verified directly against RepRapFirmware source, and `src/widgets/EddyAlignWidget.vue` gives a
-working control panel:
+**v0.12.0 — ready to test on hardware**, with two fit strategies, repeatability checking, and
+goal-seeking scan refinement built in from a review of Klipper/Kalico prior art (see
+[docs/open-questions.md](docs/open-questions.md)'s Prior art section). The signal-processing core
+(`src/model/eddyScan/`) and `src/model/orchestrator.ts`'s cross-scan sequencing are complete and unit
+tested, `makeProbeReader()` is verified directly against RepRapFirmware source, and
+`src/widgets/EddyAlignWidget.vue` gives a working control panel:
 
-- **Setup tab** — a live, polling raw-probe-reading display (the fastest way to confirm the sensor +
+- **Setup tab**, grouped into *Probe position* / *Motion* / *Scan window* / *Fit* / *Refinement* /
+  *Advanced* — a live, polling raw-probe-reading display (the fastest way to confirm the sensor +
   `M409` query work on your hardware before trusting anything automated), manual X/Y/Z jog, saved
   probe position (set from current machine position, or jog back to it), all the scan/motion settings
-  (probe `K` index, feeds, settle time, scan window, safe-Z travel), a choice of sub-sample fit
-  (`gaussianLog` or `weightedQuadratic`), and an opt-in bidirectional (forward + reverse, averaged)
-  sweep mode.
-- **Scan & Offsets tab** — per-tool or scan-all, an on-demand repeatability check per tool (mean ±
-  sample stddev over N runs), a results table (captured position, confidence, computed `G10`), and
-  Apply/Save with the same show-the-exact-command confirm dialog `duet-tool-align` uses.
-  `computeToolOffset`/`formatG10` (`src/util/toolAlign.ts`) are ported verbatim from there, same sign
-  convention. Two reference modes, matching two real E3D Tool Changer setups: **"tool"** mode measures
-  every tool against a chosen reference tool (e.g. T0); **"point"** mode measures every tool against a
-  fixed carriage datum instead — captured as a raw position snapshot (jog the bare carriage to trigger
-  a fixed reference like a homing switch that never touches a tool, then Capture), not a coil
-  measurement, mirroring exactly how duet-tool-align's own "Capture datum" works. In "tool" mode, **the
-  reference tool still gets scanned like any other tool** (own row, own Scan button) — by default
+  (probe `K` index, feeds, settle time, scan window, safe-Z travel — a clearance *floor*, only ever
+  raising Z, never lowering it), a choice of sub-sample fit (`gaussianLog` or `weightedQuadratic`), an
+  opt-in bidirectional (forward + reverse, averaged) sweep mode, and opt-in **goal-seeking refinement**:
+  after the first cross scan, move to the fitted centre and re-scan with a narrower window (halfWidth
+  and step shrunk together, preserving sample count), repeating until the centre stops moving or a pass
+  cap is hit — the answer to "can a second, narrower scan pin down the exact peak" (`runRefinedScan`,
+  `src/model/scanWorkflow.ts`).
+- **Scan & Offsets tab** — a **Stop** button that aborts a running scan/scan-all/repeatability check
+  between steps; a **Prepare tool** strip to load a tool, jog Z while watching the live reading, and
+  set (or clear) that tool's own scan height (`cfg.toolScanZ`), independent of the global default,
+  with a readout of which one will actually be used; a current-tool indicator that also highlights the
+  loaded tool's row; per-tool or scan-all, an on-demand repeatability check per tool (mean ± sample
+  stddev over N runs), a results table (captured position, confidence, computed `G10`, and a
+  **Variation** column showing how much Apply would actually change each tool's offset — new G10 minus
+  current G10, per axis), per-row and clear-all capture clearing, and Apply/Save with the same
+  show-the-exact-command confirm dialog `duet-tool-align` uses. `computeToolOffset`/`formatG10`
+  (`src/util/toolAlign.ts`) are ported verbatim from there, same sign convention. Two reference modes,
+  matching two real E3D Tool Changer setups: **"tool"** mode measures every tool against a chosen
+  reference tool (e.g. T0); **"point"** mode measures every tool against a fixed carriage datum
+  instead — captured as a raw position snapshot (jog the bare carriage to trigger a fixed reference
+  like a homing switch that never touches a tool, then Capture) and **persisted** across sessions
+  (with its capture date shown, and a Clear action), since a rigidly bed-mounted coil and a
+  carriage-fixed switch make that position stable long-term. In "tool" mode, **the reference tool
+  still gets scanned like any other tool** (own row, own Scan button) — by default
   (`zeroReferenceOffset: true`) its own fresh capture becomes the new zero baseline rather than
   inheriting whatever G10 it already had, so a from-scratch calibration never silently trusts an
   unverified offset. Turn that off to keep the reference tool's existing G10 instead, matching
