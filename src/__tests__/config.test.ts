@@ -15,5 +15,9 @@ describe("defaultConfig", () => {
 		expect(cfg.weightedQuadraticSigma).toBeGreaterThan(0);
 		expect(cfg.bidirectionalScan).toBe(false); // opt-in, roughly doubles scan time
 		expect(cfg.repeatabilityRuns).toBe(3);
+		expect(cfg.refineScan).toBe(false); // opt-in, multiplies scan time
+		expect(cfg.refineMaxPasses).toBe(3);
+		expect(cfg.refineShrink).toBe(0.5);
+		expect(cfg.refineTolerance).toBeGreaterThan(0);
 	});
 });

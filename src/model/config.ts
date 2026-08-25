@@ -57,6 +57,25 @@ export interface EddyAlignConfig {
 	repeatabilityRuns: number;
 
 	/**
+	 * Goal-seeking refinement: after the initial cross scan, move to the fitted centre and re-scan
+	 * with a narrower window, repeating until the centre stops moving (within refineTolerance) or
+	 * refineMaxPasses is reached. See scanWorkflow.ts's runRefinedScan for the loop and its design
+	 * rationale. Off by default, consistent with bidirectionalScan — it multiplies scan time.
+	 */
+	refineScan: boolean;
+	/** Hard cap on refinement passes, including the first. The loop always terminates by this count
+	 *  even if it never converges. */
+	refineMaxPasses: number;
+	/** Factor applied to both scanHalfWidth and scanStep between passes -- scaling both together keeps
+	 *  the sample count (and therefore the fit's characteristics) unchanged while doubling resolution.
+	 *  See runRefinedScan's design note for why only the window, or only the step, would be wrong. */
+	refineShrink: number;
+	/** Converged when a pass's fitted centre moves less than this (mm) in both X and Y from the centre
+	 *  it was scanned around. Placeholder pending real repeatability numbers -- see
+	 *  docs/open-questions.md, same status as weightedQuadraticSigma. */
+	refineTolerance: number;
+
+	/**
 	 * How the 0,0 origin is defined — same two modes as duet-tool-align:
 	 *  - "tool":  a reference tool (e.g. T0), scanned the same as any other tool. Other tools are
 	 *             measured relative to its captured position, and by default the reference tool
@@ -109,6 +128,10 @@ export function defaultConfig(): EddyAlignConfig {
 		weightedQuadraticSigma: 1.0,
 		bidirectionalScan: false,
 		repeatabilityRuns: 3,
+		refineScan: false,
+		refineMaxPasses: 3,
+		refineShrink: 0.5,
+		refineTolerance: 0.01,
 		referenceMode: "tool",
 		referenceTool: 0,
 		zeroReferenceOffset: true,
