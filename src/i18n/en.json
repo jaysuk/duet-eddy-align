@@ -35,7 +35,9 @@
 		"weightedQuadraticSigma": "Weighted quadratic sigma (mm)",
 		"fitMethodHint": "Weighted quadratic is immune to a DC-offset signal and handles a valley-shaped response natively. A detected valley auto-switches to it regardless of this setting — the results table shows a note when that happens.",
 		"bidirectionalScan": "Bidirectional sweep (forward + reverse, averaged)",
-		"bidirectionalHint": "Sweeps each axis both directions and averages the fits, cancelling direction-dependent bias (backlash/settling asymmetry) — roughly doubles scan time. The reported spread also picks up drift between the two passes, not just backlash, since the reverse pass runs after the forward one."
+		"bidirectionalHint": "Sweeps each axis both directions and averages the fits, cancelling direction-dependent bias (backlash/settling asymmetry) — roughly doubles scan time. The reported spread also picks up drift between the two passes, not just backlash, since the reverse pass runs after the forward one.",
+		"repeatabilityRuns": "Repeatability runs",
+		"repeatabilityRunsHint": "Total scan time scales with this × (~2 if bidirectional is on)."
 	},
 	"reference": {
 		"mode": "Reference",
@@ -55,6 +57,7 @@
 		"offset": "New G10",
 		"scan": "Scan",
 		"scanAll": "Scan all tools",
+		"repeatability": "Check repeatability",
 		"empty": "No tools found in the object model.",
 		"methodSwitched": "{type} — fitted with {method}",
 		"directionalSpread": "±{x}, {y} fwd/rev spread"
@@ -66,5 +69,11 @@
 		"confirmBody": "The following G-code will be sent:",
 		"confirmCancel": "Cancel",
 		"confirmConfirm": "Send"
+	},
+	"repeatability": {
+		"title": "Repeatability",
+		"summary": "{succeeded} of {runs} runs succeeded.",
+		"stdLabel": "(std, n−1)",
+		"close": "Close"
 	}
 }

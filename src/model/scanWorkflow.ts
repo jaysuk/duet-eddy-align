@@ -55,7 +55,8 @@ export async function goToProbePosition(io: MachineIO, cfg: EddyAlignConfig): Pr
  * scans whatever tool is currently loaded in place instead of sending a T-command.
  */
 export async function scanTool(
-	io: MachineIO, readProbe: ReadProbe, cfg: EddyAlignConfig, toolNumber: number | null, progress?: ProgressSink,
+	io: MachineIO, readProbe: ReadProbe, cfg: EddyAlignConfig, toolNumber: number | null,
+	progress?: ProgressSink, shouldAbort?: () => boolean,
 ): Promise<ScanOutcome> {
 	try {
 		if (toolNumber != null) {
@@ -69,7 +70,7 @@ export async function scanTool(
 		const result = await runCrossScan(io, readProbe, offsets, {
 			jogFeed: cfg.jogFeed, settleMs: cfg.settleMs,
 			fitMethod: cfg.fitMethod, weightedQuadraticSigma: cfg.weightedQuadraticSigma,
-			bidirectional: cfg.bidirectionalScan,
+			bidirectional: cfg.bidirectionalScan, shouldAbort,
 		}, progress);
 		if (!result.ok || !result.position) {
 			return { ok: false, error: result.error ?? "scan failed" };

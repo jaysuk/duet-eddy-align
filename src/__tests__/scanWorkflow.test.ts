@@ -102,4 +102,17 @@ describe("scanTool", () => {
 		expect(outcome.ok).toBe(false);
 		expect(outcome.error).toMatch(/probe position/i);
 	});
+
+	it("[Step 3] threads shouldAbort through to the underlying scan, so a check-only abort stops it", async () => {
+		const { io } = fakeIO({ X: 100, Y: 50 });
+		const cfg = {
+			...defaultConfig(), probeX: 100, probeY: 50, safeZ: null, probeZ: null,
+			scanHalfWidth: 2, scanStep: 0.5, settleMs: 0,
+		};
+
+		const outcome = await scanTool(io, queueReader([]), cfg, 2, undefined, () => true);
+
+		expect(outcome.ok).toBe(false);
+		expect(outcome.error).toBe("aborted");
+	});
 });

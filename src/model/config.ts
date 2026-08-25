@@ -51,6 +51,8 @@ export interface EddyAlignConfig {
 	 *  time per axis. See orchestrator.ts's CrossScanParams.bidirectional for what the resulting
 	 *  directionalSpread diagnostic does and doesn't measure. */
 	bidirectionalScan: boolean;
+	/** Number of runs for the repeatability check. */
+	repeatabilityRuns: number;
 
 	/**
 	 * How the 0,0 origin is defined — same two modes as duet-tool-align:
@@ -104,6 +106,7 @@ export function defaultConfig(): EddyAlignConfig {
 		fitMethod: "gaussianLog",
 		weightedQuadraticSigma: 1.0,
 		bidirectionalScan: false,
+		repeatabilityRuns: 3,
 		referenceMode: "tool",
 		referenceTool: 0,
 		zeroReferenceOffset: true,

@@ -93,6 +93,11 @@
             <v-text-field v-model.number="cfg.weightedQuadraticSigma" type="number" density="compact"
               :label="$t('plugins.duetEddyAlign.setup.weightedQuadraticSigma')" />
           </v-col>
+          <v-col cols="6" sm="4">
+            <v-text-field v-model.number="cfg.repeatabilityRuns" type="number" density="compact"
+              :label="$t('plugins.duetEddyAlign.setup.repeatabilityRuns')"
+              :hint="$t('plugins.duetEddyAlign.setup.repeatabilityRunsHint')" persistent-hint />
+          </v-col>
           <v-col cols="12" sm="8" class="d-flex align-center">
             <v-switch v-model="cfg.bidirectionalScan" density="compact" hide-details
               :label="$t('plugins.duetEddyAlign.setup.bidirectionalScan')" />
@@ -183,6 +188,10 @@
                 <v-btn size="x-small" variant="tonal" :loading="scanningTool === row.number" @click="onScanTool(row.number)">
                   {{ $t("plugins.duetEddyAlign.tools.scan") }}
                 </v-btn>
+                <v-btn size="x-small" variant="text" class="ml-1" :loading="repeatabilityTool === row.number"
+                  @click="onCheckRepeatability(row.number)">
+                  {{ $t("plugins.duetEddyAlign.tools.repeatability") }}
+                </v-btn>
               </td>
             </tr>
             <tr v-if="!tools.length">
@@ -217,6 +226,41 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <v-dialog v-model="repeatabilityOpen" max-width="480">
+    <v-card>
+      <v-card-title>{{ $t("plugins.duetEddyAlign.repeatability.title") }}</v-card-title>
+      <v-card-text v-if="repeatabilityResult">
+        <p class="mb-2">
+          {{ $t("plugins.duetEddyAlign.repeatability.summary", {
+            succeeded: repeatabilityResult.succeeded, runs: repeatabilityResult.runs,
+          }) }}
+        </p>
+        <div v-if="repeatabilityResult.meanX != null && repeatabilityResult.meanY != null" class="text-body-2 mb-3">
+          X: {{ repeatabilityResult.meanX.toFixed(3) }}
+          ± {{ repeatabilityResult.stdX != null ? repeatabilityResult.stdX.toFixed(3) : "—" }}
+          {{ $t("plugins.duetEddyAlign.repeatability.stdLabel") }}<br>
+          Y: {{ repeatabilityResult.meanY.toFixed(3) }}
+          ± {{ repeatabilityResult.stdY != null ? repeatabilityResult.stdY.toFixed(3) : "—" }}
+          {{ $t("plugins.duetEddyAlign.repeatability.stdLabel") }}
+        </div>
+        <v-table density="compact">
+          <thead><tr><th>#</th><th>X</th><th>Y</th></tr></thead>
+          <tbody>
+            <tr v-for="(c, i) in repeatabilityResult.captures" :key="i">
+              <td>{{ i + 1 }}</td>
+              <td>{{ c.x.toFixed(3) }}</td>
+              <td>{{ c.y.toFixed(3) }}</td>
+            </tr>
+          </tbody>
+        </v-table>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="repeatabilityOpen = false">{{ $t("plugins.duetEddyAlign.repeatability.close") }}</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
@@ -229,6 +273,7 @@ import { startPolling } from "../model/liveProbe";
 import { axisPosition, toolList, useEddyMachineIO } from "../model/machineIO";
 import { computeOffsetRows } from "../model/offsets";
 import { jogAxisCode, makeProbeReader } from "../model/orchestrator";
+import { type RepeatabilityResult, runRepeatabilityCheck } from "../model/repeatability";
 import { goToProbePosition, scanTool, type ScanCapture } from "../model/scanWorkflow";
 
 const machineStore = useMachineStore();
@@ -322,6 +367,23 @@ async function onScanAll(): Promise<void> {
 		await onScanTool(t.number);
 	}
 	scanningAll.value = false;
+}
+
+const repeatabilityTool = ref<number | null>(null);
+const repeatabilityOpen = ref(false);
+const repeatabilityResult = ref<RepeatabilityResult | null>(null);
+
+async function onCheckRepeatability(toolNumber: number): Promise<void> {
+	lastError.value = "";
+	repeatabilityTool.value = toolNumber;
+	const readProbe = makeProbeReader(io, cfg.probeIndex);
+	repeatabilityResult.value = await runRepeatabilityCheck(
+		io, readProbe, cfg, toolNumber, cfg.repeatabilityRuns,
+		{ status: (m) => { statusText.value = m; } },
+	);
+	statusText.value = "";
+	repeatabilityTool.value = null;
+	repeatabilityOpen.value = true;
 }
 
 /**

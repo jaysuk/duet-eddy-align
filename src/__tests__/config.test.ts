@@ -14,5 +14,6 @@ describe("defaultConfig", () => {
 		expect(cfg.fitMethod).toBe("gaussianLog"); // weightedQuadratic is opt-in / auto-switch only
 		expect(cfg.weightedQuadraticSigma).toBeGreaterThan(0);
 		expect(cfg.bidirectionalScan).toBe(false); // opt-in, roughly doubles scan time
+		expect(cfg.repeatabilityRuns).toBe(3);
 	});
 });
