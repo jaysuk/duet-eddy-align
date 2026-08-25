@@ -15,11 +15,14 @@ baseline removal, Savitzky-Golay smoothing, 1D/2D sub-sample peak fitting (parab
 centroid), and confidence scoring. `src/model/orchestrator.ts` sequences a per-tool **cross scan**
 (sweep X, sweep Y, Gaussian-fit each) behind injected `MachineIO`/`ReadProbe` seams — its exact
 G-code and an end-to-end synthetic recovery are both unit tested — using **triggered step-and-sample**
-(jog, `M400`, read one settled value) rather than a continuous synced sweep, since it's standalone-Duet
-target means it can't assume a native/DSF sampling path. What `ReadProbe` actually calls on real
-firmware is still open — see [docs/open-questions.md](docs/open-questions.md). Not built yet: the scan
-UI, and baseline correction wired into the orchestrator (deferred until a real sweep's background
-shape is characterised on hardware).
+(jog, `M400`, read one settled value) rather than a continuous synced sweep, since its standalone-Duet
+target means it can't assume a native/DSF sampling path. `makeProbeReader()` is the concrete
+`ReadProbe` implementation, verified directly against the RepRapFirmware source (not guessed) — see
+[docs/open-questions.md](docs/open-questions.md) for the file/line citations: it queries
+`sensors.probes[n].value[0]` via `M409`, a live, unfiltered raw reading for a scanning probe. Not
+built yet: the scan UI, and baseline correction wired into the orchestrator (deferred until a real
+sweep's background shape is characterised on hardware) — the remaining open items are physical
+scan parameters, not firmware/API questions.
 
 ## Math
 

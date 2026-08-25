@@ -5,12 +5,12 @@
  *   - MachineIO: send G-code + read machine axis positions.
  *   - ReadProbe: return one settled Scanning Z Probe reading (or null if it didn't settle in time).
  *
- * ReadProbe exists specifically so the still-open question in docs/open-questions.md — exactly which
- * object-model field or gcode gives a single settled SZP reading on a standalone (no-SBC) Duet — can
- * be resolved later without touching the sweep/fit sequencing below. Until then, this defaults to
- * **triggered step-and-sample**: jog to each point, M400, read once. That only needs whatever RRF
- * already exposes for a settled reading, not a position-synced stream during continuous motion — see
- * docs/open-questions.md for why that's the safer starting assumption on standalone Duet.
+ * ReadProbe is the seam docs/open-questions.md flagged as needing verification against real RRF
+ * source before implementing — see makeProbeReader() below for the resolved, source-verified
+ * implementation (sensors.probes[n].value[0] via M409, confirmed against Endstops/ZProbe.cpp,
+ * Endstops/EndstopsManager.cpp and Platform/RepRap.cpp). The sweep strategy stays **triggered
+ * step-and-sample** (jog to each point, M400, read once) rather than polling during continuous
+ * motion — that was a platform/UX choice, not something the object-model answer forces.
  */
 import { gaussianLogFit } from "./eddyScan/peak1d";
 import { isIncompleteSweep } from "./eddyScan/quality";
@@ -67,6 +67,39 @@ export async function sweepLine(
 
 	if (current !== 0) await io.sendCode(jogAxisCode(axis, -current, params.jogFeed));
 	return points;
+}
+
+/**
+ * Concrete ReadProbe implementation, verified against RepRapFirmware source rather than assumed:
+ *
+ *   - `sensors.probes[<K>].value[0]` is a live object-model field (Endstops/EndstopsManager.cpp:
+ *     `{ "probes", OBJECT_MODEL_FUNC_ARRAY(4), ObjectModelEntryFlags::live }`, mounted at the
+ *     top-level `sensors` key in Platform/RepRap.cpp: `{ "sensors",
+ *     OBJECT_MODEL_FUNC(&self->platform->GetEndstops()), ObjectModelEntryFlags::live }`), where `<K>`
+ *     is the probe number the scanning probe was configured with (`M558 K<n> P11 ...`, default 0).
+ *   - For a scanning probe (`type == ZProbeType::scanningAnalog`, i.e. `M558 P11`), that field is
+ *     `ZProbe::GetRawReading()` with **no filtering** — Endstops/ZProbe.cpp's `GetReading()` switch
+ *     comments it explicitly: "scanning analog probes are unfiltered for speed". That's exactly the
+ *     raw signal peak1d.ts/peak2d.ts expect, not an RRF-smoothed value.
+ *   - `M409 K"<path>"` returns `{"key":...,"flags":...,"result":<value>}\n` synchronously
+ *     (GCodes/GCodes2.cpp's `case 409`, backed by `RepRap::GetModelResponse` in Platform/RepRap.cpp)
+ *     — a fresh on-demand read at the moment it's sent, not whatever DWC's ambient object-model poll
+ *     last cached. Sending it right after the sweep's M400 is exactly the "one settled reading"
+ *     ReadProbe needs.
+ *
+ * `settleMs` in SweepParams is therefore purely about mechanical/coil settling after the jog, not
+ * about waiting out a polling interval — M409 always returns the value as of when it's asked.
+ */
+export function makeProbeReader(io: MachineIO, probeIndex = 0): ReadProbe {
+	return async () => {
+		const reply = await io.sendCode(`M409 K"sensors.probes[${probeIndex}].value[0]"`);
+		try {
+			const parsed = JSON.parse(String(reply)) as { result?: unknown };
+			return typeof parsed.result === "number" ? parsed.result : null;
+		} catch {
+			return null;
+		}
+	};
 }
 
 export interface CrossScanResult {

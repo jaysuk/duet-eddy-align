@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { jogAxisCode, type MachineIO, type ReadProbe, runCrossScan, sweepLine } from "../model/orchestrator";
+import { jogAxisCode, type MachineIO, makeProbeReader, type ReadProbe, runCrossScan, sweepLine } from "../model/orchestrator";
 
 function fakeIO(positions: Partial<Record<"X" | "Y" | "Z", number>>) {
 	const codes: string[] = [];
@@ -48,6 +48,39 @@ describe("sweepLine", () => {
 	it("throws if the axis position is unavailable (not homed)", async () => {
 		const { io } = fakeIO({});
 		await expect(sweepLine(io, queueReader([1]), "X", [0], { jogFeed: 600, settleMs: 0 })).rejects.toThrow(/home/i);
+	});
+});
+
+describe("makeProbeReader", () => {
+	it("queries the right object-model path and parses the M409 result", async () => {
+		const codes: string[] = [];
+		const io: MachineIO = {
+			sendCode: async (code) => {
+				codes.push(code);
+				return '{"key":"sensors.probes[0].value[0]","flags":"","result":1234}\n';
+			},
+			machinePos: () => null,
+		};
+
+		const read = makeProbeReader(io, 0);
+		await expect(read()).resolves.toBe(1234);
+		expect(codes).toEqual(['M409 K"sensors.probes[0].value[0]"']);
+	});
+
+	it("uses the given probe index in the query path", async () => {
+		const codes: string[] = [];
+		const io: MachineIO = { sendCode: async (c) => { codes.push(c); return '{"result":5}'; }, machinePos: () => null };
+
+		await makeProbeReader(io, 2)();
+		expect(codes).toEqual(['M409 K"sensors.probes[2].value[0]"']);
+	});
+
+	it("returns null on a malformed or non-numeric reply instead of throwing", async () => {
+		const ioBadJson: MachineIO = { sendCode: async () => "not json", machinePos: () => null };
+		await expect(makeProbeReader(ioBadJson)()).resolves.toBeNull();
+
+		const ioNoResult: MachineIO = { sendCode: async () => '{"key":"x","result":"n/a"}', machinePos: () => null };
+		await expect(makeProbeReader(ioNoResult)()).resolves.toBeNull();
 	});
 });
 
