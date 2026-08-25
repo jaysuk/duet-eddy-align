@@ -159,6 +159,36 @@
           {{ $t("plugins.duetEddyAlign.reference.zeroReferenceHint") }}
         </div>
 
+        <v-card variant="outlined" class="mb-4 pa-3">
+          <div class="text-subtitle-2 mb-2">{{ $t("plugins.duetEddyAlign.prepare.title") }}</div>
+          <div class="d-flex align-center ga-2 flex-wrap">
+            <v-select v-model.number="prepareToolNumber" density="compact" hide-details style="max-width: 160px"
+              :items="toolOptions" :label="$t('plugins.duetEddyAlign.tools.tool')" />
+            <v-btn size="small" variant="tonal" :disabled="prepareToolNumber == null" @click="onLoadPrepareTool">
+              {{ $t("plugins.duetEddyAlign.prepare.load") }}
+            </v-btn>
+            <v-btn size="small" @click="jog('Z', -cfg.zStep)">Z−</v-btn>
+            <v-btn size="small" @click="jog('Z', cfg.zStep)">Z+</v-btn>
+            <div class="text-body-2 ea-live-value">{{ liveValue ?? "—" }}</div>
+            <v-btn size="small" :color="liveActive ? 'error' : 'primary'" variant="tonal" @click="toggleLive">
+              {{ liveActive ? $t("plugins.duetEddyAlign.live.stop") : $t("plugins.duetEddyAlign.live.start") }}
+            </v-btn>
+          </div>
+          <div class="d-flex align-center ga-2 flex-wrap mt-2">
+            <v-btn size="small" variant="tonal" :disabled="prepareToolNumber == null" @click="onSetToolScanZ">
+              {{ $t("plugins.duetEddyAlign.prepare.setScanZ") }}
+            </v-btn>
+            <v-btn v-if="prepareToolScanZ?.isOverride" size="small" variant="text" @click="onClearToolScanZ">
+              {{ $t("plugins.duetEddyAlign.prepare.clearScanZ") }}
+            </v-btn>
+            <span v-if="prepareToolScanZ" class="text-caption text-medium-emphasis">
+              {{ prepareToolScanZ.value != null
+                ? $t(prepareToolScanZ.isOverride ? "plugins.duetEddyAlign.prepare.willScanAtOverride" : "plugins.duetEddyAlign.prepare.willScanAtDefault", { z: prepareToolScanZ.value.toFixed(3) })
+                : $t("plugins.duetEddyAlign.prepare.noScanZ") }}
+            </span>
+          </div>
+        </v-card>
+
         <v-btn size="small" color="primary" variant="tonal" class="mb-3" :disabled="!tools.length"
           :loading="scanningAll" @click="onScanAll">
           {{ $t("plugins.duetEddyAlign.tools.scanAll") }}
@@ -347,6 +377,48 @@ async function onGoToProbe(): Promise<void> {
 		lastError.value = err instanceof Error ? err.message : String(err);
 	}
 }
+
+// --- Prepare tool (Scan tab) -------------------------------------------------------------------
+// Lets a tool be loaded and its scan Z adjusted -- while watching the live reading -- without
+// leaving the Scan tab or disturbing cfg.probeZ, the global default every other tool still falls
+// back to. Deliberately writes a stored per-tool value (cfg.toolScanZ) rather than trusting
+// wherever Z happens to be at scan time -- see scanWorkflow.ts's goToProbePosition.
+
+const prepareToolNumber = ref<number | null>(null);
+
+async function onLoadPrepareTool(): Promise<void> {
+	if (prepareToolNumber.value == null) return;
+	lastError.value = "";
+	try {
+		await io.sendCode(`T${prepareToolNumber.value}`);
+	} catch (err) {
+		lastError.value = err instanceof Error ? err.message : String(err);
+	}
+}
+
+function onSetToolScanZ(): void {
+	if (prepareToolNumber.value == null) return;
+	const z = axisPosition(machineStore.model, "Z");
+	if (z == null) {
+		lastError.value = "Z position unavailable — home first";
+		return;
+	}
+	cfg.toolScanZ[String(prepareToolNumber.value)] = z;
+}
+
+function onClearToolScanZ(): void {
+	if (prepareToolNumber.value == null) return;
+	delete cfg.toolScanZ[String(prepareToolNumber.value)];
+}
+
+/** What Set-Scan-Z's caption line for the currently selected prepare-tool should say: its stored
+ *  override if it has one, else the global default (cfg.probeZ, which may itself be unset). */
+const prepareToolScanZ = computed<{ value: number | null; isOverride: boolean } | null>(() => {
+	if (prepareToolNumber.value == null) return null;
+	const key = String(prepareToolNumber.value);
+	const override = cfg.toolScanZ[key];
+	return override != null ? { value: override, isOverride: true } : { value: cfg.probeZ, isOverride: false };
+});
 
 // --- Scanning ------------------------------------------------------------------------------
 

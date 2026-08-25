@@ -82,6 +82,24 @@ describe("goToProbePosition", () => {
 
 		expect(codes).toEqual(["G53 G1 X50 Y60 F6000\nM400"]); // already at the floor, no move needed
 	});
+
+	it("[B3] descends to the given scanZ instead of cfg.probeZ when passed", async () => {
+		const { io, codes } = fakeIO();
+		const cfg = { ...defaultConfig(), safeZ: null, probeX: 50, probeY: 60, probeZ: 4, useG53: true, travelFeed: 6000 };
+
+		await goToProbePosition(io, cfg, 7.5);
+
+		expect(codes).toEqual(["G53 G1 X50 Y60 F6000\nG53 G1 Z7.5 F6000\nM400"]);
+	});
+
+	it("[B3] a null scanZ means don't descend at all, same as an unset probeZ", async () => {
+		const { io, codes } = fakeIO();
+		const cfg = { ...defaultConfig(), safeZ: null, probeX: 50, probeY: 60, probeZ: 4, useG53: true, travelFeed: 6000 };
+
+		await goToProbePosition(io, cfg, null);
+
+		expect(codes).toEqual(["G53 G1 X50 Y60 F6000\nM400"]);
+	});
 });
 
 describe("scanTool", () => {
@@ -129,6 +147,32 @@ describe("scanTool", () => {
 		const outcome = await scanTool(io, queueReader([]), defaultConfig(), 0);
 		expect(outcome.ok).toBe(false);
 		expect(outcome.error).toMatch(/probe position/i);
+	});
+
+	it("[B3] uses the tool's toolScanZ override instead of cfg.probeZ when one is set", async () => {
+		const { io, codes } = fakeIO({ X: 100, Y: 50 });
+		const cfg = {
+			...defaultConfig(), probeX: 100, probeY: 50, safeZ: null, probeZ: 4,
+			toolScanZ: { "2": 9 }, scanHalfWidth: 2, scanStep: 0.5, settleMs: 0,
+		};
+		const readings = [...offsets.map((o) => gaussian(o, 0)), ...offsets.map((o) => gaussian(o, 0))];
+
+		await scanTool(io, queueReader(readings), cfg, 2);
+
+		expect(codes[1]).toContain("Z9"); // T2's override, not cfg.probeZ (4)
+	});
+
+	it("[B3] falls back to cfg.probeZ for a tool with no toolScanZ entry", async () => {
+		const { io, codes } = fakeIO({ X: 100, Y: 50 });
+		const cfg = {
+			...defaultConfig(), probeX: 100, probeY: 50, safeZ: null, probeZ: 4,
+			toolScanZ: { "2": 9 }, scanHalfWidth: 2, scanStep: 0.5, settleMs: 0,
+		};
+		const readings = [...offsets.map((o) => gaussian(o, 0)), ...offsets.map((o) => gaussian(o, 0))];
+
+		await scanTool(io, queueReader(readings), cfg, 3); // no entry for T3
+
+		expect(codes[1]).toContain("Z4");
 	});
 
 	it("[Step 3] threads shouldAbort through to the underlying scan, so a check-only abort stops it", async () => {

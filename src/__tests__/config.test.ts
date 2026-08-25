@@ -20,5 +20,6 @@ describe("defaultConfig", () => {
 		expect(cfg.refineShrink).toBe(0.5);
 		expect(cfg.refineTolerance).toBeGreaterThan(0);
 		expect(cfg.datumPoint).toBeNull();
+		expect(cfg.toolScanZ).toEqual({});
 	});
 });

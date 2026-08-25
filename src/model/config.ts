@@ -107,6 +107,16 @@ export interface EddyAlignConfig {
 	 */
 	datumPoint: { x: number; y: number; capturedAt: string } | null;
 
+	/**
+	 * Per-tool scan height overrides, keyed by tool number as a string (matching duet-tool-align's
+	 * detectProfiles convention for per-tool overrides) -- different tools can legitimately need
+	 * different Z standoffs (nozzle length, tool geometry). Falls back to probeZ when a tool has no
+	 * entry. Deliberately a stored value the "Set scan Z for this tool" button writes, not "whatever Z
+	 * currently is" at scan time -- see scanWorkflow.ts's goToProbePosition, which always descends to
+	 * a resolved height rather than trusting wherever a stray jog left Z.
+	 */
+	toolScanZ: Record<string, number>;
+
 	/** Manual jog steps for the Setup panel. */
 	xyStep: number;
 	zStep: number;
@@ -147,6 +157,7 @@ export function defaultConfig(): EddyAlignConfig {
 		zeroReferenceOffset: true,
 		invertOffsets: false,
 		datumPoint: null,
+		toolScanZ: {},
 		xyStep: 0.5,
 		zStep: 0.1,
 		livePollMs: 300,

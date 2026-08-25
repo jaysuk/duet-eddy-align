@@ -39,6 +39,15 @@
 		"repeatabilityRuns": "Repeatability runs",
 		"repeatabilityRunsHint": "Total scan time scales with this × (~2 if bidirectional is on)."
 	},
+	"prepare": {
+		"title": "Prepare tool",
+		"load": "Load",
+		"setScanZ": "Set scan Z for this tool",
+		"clearScanZ": "Clear override",
+		"willScanAtOverride": "Will scan at Z{z} (per-tool override)",
+		"willScanAtDefault": "Will scan at Z{z} (global default)",
+		"noScanZ": "No scan height set yet — set one on the Setup tab or here"
+	},
 	"reference": {
 		"mode": "Reference",
 		"tool": "Reference tool",

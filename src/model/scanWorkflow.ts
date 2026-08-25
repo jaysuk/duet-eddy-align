@@ -49,7 +49,13 @@ export function buildScanOffsets(halfWidth: number, step: number): number[] {
  * exactly backwards from what "safe" means. Reading the current position first and skipping the move
  * entirely when it's already at or above safeZ fixes that without losing the clearance guarantee.
  */
-export async function goToProbePosition(io: MachineIO, cfg: EddyAlignConfig): Promise<void> {
+/**
+ * `scanZ`, if given, overrides cfg.probeZ for the final descent -- scanTool uses this to resolve a
+ * per-tool scan height (config.ts's toolScanZ). Omit it entirely (undefined) to fall back to
+ * cfg.probeZ exactly as before; pass it explicitly (including null) to pin the descent to that
+ * specific value instead, with null meaning "don't descend" same as an unset probeZ always has.
+ */
+export async function goToProbePosition(io: MachineIO, cfg: EddyAlignConfig, scanZ?: number | null): Promise<void> {
 	if (cfg.probeX == null || cfg.probeY == null) {
 		throw new Error("Set the probe position first (Setup panel)");
 	}
@@ -62,7 +68,8 @@ export async function goToProbePosition(io: MachineIO, cfg: EddyAlignConfig): Pr
 		}
 	}
 	lines.push(`${g53}G1 X${cfg.probeX} Y${cfg.probeY} F${cfg.travelFeed}`);
-	if (cfg.probeZ != null) lines.push(`${g53}G1 Z${cfg.probeZ} F${cfg.travelFeed}`);
+	const z = scanZ !== undefined ? scanZ : cfg.probeZ;
+	if (z != null) lines.push(`${g53}G1 Z${z} F${cfg.travelFeed}`);
 	lines.push("M400");
 	await io.sendCode(lines.join("\n"));
 }
@@ -218,7 +225,8 @@ export async function scanTool(
 			await io.sendCode(`T${toolNumber}`);
 		}
 		progress?.status?.("Travelling to probe…");
-		await goToProbePosition(io, cfg);
+		const scanZ = toolNumber != null ? (cfg.toolScanZ[String(toolNumber)] ?? cfg.probeZ) : cfg.probeZ;
+		await goToProbePosition(io, cfg, scanZ);
 
 		if (cfg.refineScan) {
 			const refined = await runRefinedScan(io, readProbe, cfg, progress, shouldAbort);
