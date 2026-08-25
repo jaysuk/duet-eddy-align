@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { axisPosition, toolList } from "../model/machineIO";
+import { axisPosition, currentToolNumber, toolList } from "../model/machineIO";
 
 describe("axisPosition", () => {
 	it("finds the named axis's machine position", () => {
@@ -32,5 +32,17 @@ describe("toolList", () => {
 
 	it("returns an empty list when tools are missing", () => {
 		expect(toolList({})).toEqual([]);
+	});
+});
+
+describe("currentToolNumber", () => {
+	it("reads state.currentTool", () => {
+		expect(currentToolNumber({ state: { currentTool: 2 } })).toBe(2);
+	});
+
+	it("treats -1 (RRF's 'no tool' sentinel) and a malformed model as null", () => {
+		expect(currentToolNumber({ state: { currentTool: -1 } })).toBeNull();
+		expect(currentToolNumber({})).toBeNull();
+		expect(currentToolNumber(null)).toBeNull();
 	});
 });

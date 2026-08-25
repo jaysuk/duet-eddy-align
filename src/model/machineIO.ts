@@ -42,6 +42,13 @@ export function toolList(model: unknown): Array<ToolInfo> {
 		}));
 }
 
+/** The currently loaded tool number, or null if none is selected -- RRF's object model reports this
+ *  as state.currentTool, -1 meaning "no tool". */
+export function currentToolNumber(model: unknown): number | null {
+	const v = resolveOmPath(model, "state.currentTool");
+	return typeof v === "number" && v >= 0 ? v : null;
+}
+
 export function useEddyMachineIO(): MachineIO {
 	const machine = useMachineStore();
 	return {

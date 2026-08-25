@@ -17,45 +17,46 @@
           </div>
         </v-card>
 
-        <div class="mb-4">
-          <div class="text-subtitle-2 mb-1">{{ $t("plugins.duetEddyAlign.jog.label") }}</div>
-          <div class="d-flex ga-2 flex-wrap">
-            <v-btn size="small" @click="jog('X', -cfg.xyStep)">X−</v-btn>
-            <v-btn size="small" @click="jog('X', cfg.xyStep)">X+</v-btn>
-            <v-btn size="small" @click="jog('Y', -cfg.xyStep)">Y−</v-btn>
-            <v-btn size="small" @click="jog('Y', cfg.xyStep)">Y+</v-btn>
-            <v-btn size="small" @click="jog('Z', -cfg.zStep)">Z−</v-btn>
-            <v-btn size="small" @click="jog('Z', cfg.zStep)">Z+</v-btn>
-          </div>
+        <div class="text-subtitle-1 font-weight-medium mb-1">{{ $t("plugins.duetEddyAlign.setup.groupProbePosition") }}</div>
+        <div class="text-body-2 mb-2">
+          X: {{ cfg.probeX ?? "—" }}&nbsp; Y: {{ cfg.probeY ?? "—" }}&nbsp; Z (scan height): {{ cfg.probeZ ?? "—" }}
         </div>
-
-        <div class="mb-4">
-          <div class="text-subtitle-2 mb-1">{{ $t("plugins.duetEddyAlign.setup.probePos") }}</div>
-          <div class="text-body-2 mb-2">
-            X: {{ cfg.probeX ?? "—" }}&nbsp; Y: {{ cfg.probeY ?? "—" }}&nbsp; Z (scan height): {{ cfg.probeZ ?? "—" }}
-          </div>
-          <div class="d-flex ga-2 flex-wrap">
-            <v-btn size="small" variant="tonal" @click="setProbeXY">{{ $t("plugins.duetEddyAlign.setup.setProbeXY") }}</v-btn>
-            <v-btn size="small" variant="tonal" @click="setProbeZ">{{ $t("plugins.duetEddyAlign.setup.setProbeZ") }}</v-btn>
-            <v-btn size="small" variant="tonal" :disabled="cfg.probeX == null" @click="onGoToProbe">
-              {{ $t("plugins.duetEddyAlign.setup.goToProbe") }}
-            </v-btn>
-          </div>
+        <div class="d-flex ga-2 flex-wrap mb-3">
+          <v-btn size="small" variant="tonal" @click="setProbeXY">{{ $t("plugins.duetEddyAlign.setup.setProbeXY") }}</v-btn>
+          <v-btn size="small" variant="tonal" @click="setProbeZ">{{ $t("plugins.duetEddyAlign.setup.setProbeZ") }}</v-btn>
+          <v-btn size="small" variant="tonal" :disabled="cfg.probeX == null" @click="onGoToProbe">
+            {{ $t("plugins.duetEddyAlign.setup.goToProbe") }}
+          </v-btn>
         </div>
-
-        <v-divider class="mb-4" />
-
-        <v-row dense>
-          <v-col cols="6" sm="4">
-            <v-text-field v-model.number="cfg.probeIndex" type="number" density="compact"
-              :label="$t('plugins.duetEddyAlign.setup.probeIndex')" />
-          </v-col>
+        <v-row dense class="mb-3">
           <v-col cols="6" sm="4">
             <v-text-field v-model.number="cfg.safeZ" type="number" density="compact"
               :label="$t('plugins.duetEddyAlign.setup.safeZ')" />
           </v-col>
           <v-col cols="6" sm="4" class="d-flex align-center">
             <v-switch v-model="cfg.useG53" density="compact" hide-details :label="$t('plugins.duetEddyAlign.setup.useG53')" />
+          </v-col>
+        </v-row>
+
+        <v-divider class="mb-4" />
+
+        <div class="text-subtitle-1 font-weight-medium mb-1">{{ $t("plugins.duetEddyAlign.setup.groupMotion") }}</div>
+        <div class="d-flex ga-2 flex-wrap mb-3">
+          <v-btn size="small" @click="jog('X', -cfg.xyStep)">X−</v-btn>
+          <v-btn size="small" @click="jog('X', cfg.xyStep)">X+</v-btn>
+          <v-btn size="small" @click="jog('Y', -cfg.xyStep)">Y−</v-btn>
+          <v-btn size="small" @click="jog('Y', cfg.xyStep)">Y+</v-btn>
+          <v-btn size="small" @click="jog('Z', -cfg.zStep)">Z−</v-btn>
+          <v-btn size="small" @click="jog('Z', cfg.zStep)">Z+</v-btn>
+        </div>
+        <v-row dense class="mb-3">
+          <v-col cols="6" sm="4">
+            <v-text-field v-model.number="cfg.xyStep" type="number" density="compact"
+              :label="$t('plugins.duetEddyAlign.setup.xyStep')" />
+          </v-col>
+          <v-col cols="6" sm="4">
+            <v-text-field v-model.number="cfg.zStep" type="number" density="compact"
+              :label="$t('plugins.duetEddyAlign.setup.zStep')" />
           </v-col>
           <v-col cols="6" sm="4">
             <v-text-field v-model.number="cfg.travelFeed" type="number" density="compact"
@@ -69,6 +70,12 @@
             <v-text-field v-model.number="cfg.settleMs" type="number" density="compact"
               :label="$t('plugins.duetEddyAlign.setup.settleMs')" />
           </v-col>
+        </v-row>
+
+        <v-divider class="mb-4" />
+
+        <div class="text-subtitle-1 font-weight-medium mb-1">{{ $t("plugins.duetEddyAlign.setup.groupScanWindow") }}</div>
+        <v-row dense class="mb-3">
           <v-col cols="6" sm="4">
             <v-text-field v-model.number="cfg.scanHalfWidth" type="number" density="compact"
               :label="$t('plugins.duetEddyAlign.setup.scanHalfWidth')" />
@@ -77,14 +84,12 @@
             <v-text-field v-model.number="cfg.scanStep" type="number" density="compact"
               :label="$t('plugins.duetEddyAlign.setup.scanStep')" />
           </v-col>
-          <v-col cols="6" sm="4">
-            <v-text-field v-model.number="cfg.xyStep" type="number" density="compact"
-              :label="$t('plugins.duetEddyAlign.setup.xyStep')" />
-          </v-col>
-          <v-col cols="6" sm="4">
-            <v-text-field v-model.number="cfg.zStep" type="number" density="compact"
-              :label="$t('plugins.duetEddyAlign.setup.zStep')" />
-          </v-col>
+        </v-row>
+
+        <v-divider class="mb-4" />
+
+        <div class="text-subtitle-1 font-weight-medium mb-1">{{ $t("plugins.duetEddyAlign.setup.groupFit") }}</div>
+        <v-row dense class="mb-1">
           <v-col cols="6" sm="4">
             <v-select v-model="cfg.fitMethod" density="compact" :items="fitMethodItems"
               :label="$t('plugins.duetEddyAlign.setup.fitMethod')" />
@@ -93,20 +98,53 @@
             <v-text-field v-model.number="cfg.weightedQuadraticSigma" type="number" density="compact"
               :label="$t('plugins.duetEddyAlign.setup.weightedQuadraticSigma')" />
           </v-col>
-          <v-col cols="6" sm="4">
-            <v-text-field v-model.number="cfg.repeatabilityRuns" type="number" density="compact"
-              :label="$t('plugins.duetEddyAlign.setup.repeatabilityRuns')"
-              :hint="$t('plugins.duetEddyAlign.setup.repeatabilityRunsHint')" persistent-hint />
-          </v-col>
           <v-col cols="12" sm="8" class="d-flex align-center">
             <v-switch v-model="cfg.bidirectionalScan" density="compact" hide-details
               :label="$t('plugins.duetEddyAlign.setup.bidirectionalScan')" />
           </v-col>
         </v-row>
         <div class="text-caption text-medium-emphasis mb-2">{{ $t("plugins.duetEddyAlign.setup.fitMethodHint") }}</div>
-        <div v-if="cfg.bidirectionalScan" class="text-caption text-medium-emphasis mb-2">
+        <div v-if="cfg.bidirectionalScan" class="text-caption text-medium-emphasis mb-3">
           {{ $t("plugins.duetEddyAlign.setup.bidirectionalHint") }}
         </div>
+
+        <v-divider class="mb-4" />
+
+        <div class="text-subtitle-1 font-weight-medium mb-1">{{ $t("plugins.duetEddyAlign.setup.groupRefinement") }}</div>
+        <v-row dense class="mb-1">
+          <v-col cols="12" sm="8" class="d-flex align-center">
+            <v-switch v-model="cfg.refineScan" density="compact" hide-details
+              :label="$t('plugins.duetEddyAlign.setup.refineScan')" />
+          </v-col>
+          <v-col v-if="cfg.refineScan" cols="6" sm="4">
+            <v-text-field v-model.number="cfg.refineMaxPasses" type="number" density="compact"
+              :label="$t('plugins.duetEddyAlign.setup.refineMaxPasses')" />
+          </v-col>
+          <v-col v-if="cfg.refineScan" cols="6" sm="4">
+            <v-text-field v-model.number="cfg.refineShrink" type="number" density="compact"
+              :label="$t('plugins.duetEddyAlign.setup.refineShrink')" />
+          </v-col>
+          <v-col v-if="cfg.refineScan" cols="6" sm="4">
+            <v-text-field v-model.number="cfg.refineTolerance" type="number" density="compact"
+              :label="$t('plugins.duetEddyAlign.setup.refineTolerance')" />
+          </v-col>
+        </v-row>
+        <div class="text-caption text-medium-emphasis mb-2">{{ $t("plugins.duetEddyAlign.setup.refineHint") }}</div>
+
+        <v-divider class="mb-4" />
+
+        <div class="text-subtitle-1 font-weight-medium mb-1">{{ $t("plugins.duetEddyAlign.setup.groupAdvanced") }}</div>
+        <v-row dense>
+          <v-col cols="6" sm="4">
+            <v-text-field v-model.number="cfg.probeIndex" type="number" density="compact"
+              :label="$t('plugins.duetEddyAlign.setup.probeIndex')" />
+          </v-col>
+          <v-col cols="6" sm="4">
+            <v-text-field v-model.number="cfg.repeatabilityRuns" type="number" density="compact"
+              :label="$t('plugins.duetEddyAlign.setup.repeatabilityRuns')"
+              :hint="$t('plugins.duetEddyAlign.setup.repeatabilityRunsHint')" persistent-hint />
+          </v-col>
+        </v-row>
       </v-card-text>
     </v-window-item>
 
@@ -160,7 +198,14 @@
         </div>
 
         <v-card variant="outlined" class="mb-4 pa-3">
-          <div class="text-subtitle-2 mb-2">{{ $t("plugins.duetEddyAlign.prepare.title") }}</div>
+          <div class="d-flex align-center justify-space-between mb-2">
+            <div class="text-subtitle-2">{{ $t("plugins.duetEddyAlign.prepare.title") }}</div>
+            <div class="text-caption text-medium-emphasis">
+              {{ currentTool != null
+                ? $t("plugins.duetEddyAlign.prepare.currentTool", { tool: tools.find((t) => t.number === currentTool)?.name ?? `T${currentTool}` })
+                : $t("plugins.duetEddyAlign.prepare.noCurrentTool") }}
+            </div>
+          </div>
           <div class="d-flex align-center ga-2 flex-wrap">
             <v-select v-model.number="prepareToolNumber" density="compact" hide-details style="max-width: 160px"
               :items="toolOptions" :label="$t('plugins.duetEddyAlign.tools.tool')" />
@@ -189,10 +234,15 @@
           </div>
         </v-card>
 
-        <v-btn size="small" color="primary" variant="tonal" class="mb-3" :disabled="!tools.length"
-          :loading="scanningAll" @click="onScanAll">
-          {{ $t("plugins.duetEddyAlign.tools.scanAll") }}
-        </v-btn>
+        <div class="d-flex ga-2 mb-3">
+          <v-btn size="small" color="primary" variant="tonal" :disabled="!tools.length"
+            :loading="scanningAll" @click="onScanAll">
+            {{ $t("plugins.duetEddyAlign.tools.scanAll") }}
+          </v-btn>
+          <v-btn size="small" variant="text" :disabled="!Object.keys(captures).length" @click="onClearAllCaptures">
+            {{ $t("plugins.duetEddyAlign.tools.clearAll") }}
+          </v-btn>
+        </div>
 
         <v-table density="compact">
           <thead>
@@ -207,7 +257,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in rows" :key="row.number">
+            <tr v-for="row in rows" :key="row.number" :class="{ 'ea-current-tool-row': row.number === currentTool }">
               <td>{{ row.name }}</td>
               <td>{{ row.curX != null ? `${row.curX.toFixed(2)}, ${row.curY?.toFixed(2)}` : "—" }}</td>
               <td>
@@ -236,6 +286,9 @@
                 <v-btn size="x-small" variant="text" class="ml-1" :loading="repeatabilityTool === row.number"
                   @click="onCheckRepeatability(row.number)">
                   {{ $t("plugins.duetEddyAlign.tools.repeatability") }}
+                </v-btn>
+                <v-btn v-if="row.capture" size="x-small" variant="text" class="ml-1" @click="onClearCapture(row.number)">
+                  {{ $t("plugins.duetEddyAlign.tools.clear") }}
                 </v-btn>
               </td>
             </tr>
@@ -315,7 +368,7 @@ import { useMachineStore } from "@/stores/machine";
 
 import { useConfig } from "../model/config";
 import { startPolling } from "../model/liveProbe";
-import { axisPosition, toolList, useEddyMachineIO } from "../model/machineIO";
+import { axisPosition, currentToolNumber, toolList, useEddyMachineIO } from "../model/machineIO";
 import { computeOffsetRows } from "../model/offsets";
 import { jogAxisCode, makeProbeReader } from "../model/orchestrator";
 import { type RepeatabilityResult, runRepeatabilityCheck } from "../model/repeatability";
@@ -328,6 +381,7 @@ const io = useEddyMachineIO();
 const tab = ref("setup");
 const tools = computed(() => toolList(machineStore.model));
 const toolOptions = computed(() => tools.value.map((t) => ({ title: t.name, value: t.number })));
+const currentTool = computed(() => currentToolNumber(machineStore.model));
 const referenceModeItems = [
 	{ title: "Reference tool", value: "tool" as const },
 	{ title: "Fixed datum point", value: "point" as const },
@@ -487,6 +541,14 @@ async function onScanAll(): Promise<void> {
 	scanningAll.value = false;
 }
 
+function onClearCapture(toolNumber: number): void {
+	delete captures[toolNumber];
+}
+
+function onClearAllCaptures(): void {
+	for (const key of Object.keys(captures)) delete captures[Number(key)];
+}
+
 const repeatabilityTool = ref<number | null>(null);
 const repeatabilityOpen = ref(false);
 const repeatabilityResult = ref<RepeatabilityResult | null>(null);
@@ -568,4 +630,5 @@ async function onSave(): Promise<void> {
 <style scoped>
 .ea-live-value { min-width: 8ch; font-variant-numeric: tabular-nums; }
 .ea-confirm-body { white-space: pre-wrap; font-family: monospace; }
+.ea-current-tool-row { background: rgba(var(--v-theme-primary), 0.08); }
 </style>

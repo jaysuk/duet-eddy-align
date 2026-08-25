@@ -13,11 +13,13 @@
 		"stop": "Stop",
 		"hint": "Raw, unfiltered probe reading — watch this while you jog a nozzle over the coil to sanity-check the sensor before trusting an automated scan."
 	},
-	"jog": {
-		"label": "Manual jog"
-	},
 	"setup": {
-		"probePos": "Probe position",
+		"groupProbePosition": "Probe position",
+		"groupMotion": "Motion",
+		"groupScanWindow": "Scan window",
+		"groupFit": "Fit",
+		"groupRefinement": "Refinement",
+		"groupAdvanced": "Advanced",
 		"setProbeXY": "Set probe X/Y (current position)",
 		"setProbeZ": "Set scan height Z (current position)",
 		"goToProbe": "Go to probe position",
@@ -36,6 +38,11 @@
 		"fitMethodHint": "Weighted quadratic is immune to a DC-offset signal and handles a valley-shaped response natively. A detected valley auto-switches to it regardless of this setting — the results table shows a note when that happens.",
 		"bidirectionalScan": "Bidirectional sweep (forward + reverse, averaged)",
 		"bidirectionalHint": "Sweeps each axis both directions and averages the fits, cancelling direction-dependent bias (backlash/settling asymmetry) — roughly doubles scan time. The reported spread also picks up drift between the two passes, not just backlash, since the reverse pass runs after the forward one.",
+		"refineScan": "Goal-seeking refinement (re-scan a narrower window around the fitted centre)",
+		"refineMaxPasses": "Max refinement passes",
+		"refineShrink": "Refinement shrink factor",
+		"refineTolerance": "Refinement tolerance (mm)",
+		"refineHint": "After the first scan, moves to the fitted centre and re-scans with a narrower window, repeating until the centre stops moving (within the tolerance) or the pass cap is hit — multiplies scan time by roughly the number of passes actually run.",
 		"repeatabilityRuns": "Repeatability runs",
 		"repeatabilityRunsHint": "Total scan time scales with this × (~2 if bidirectional is on)."
 	},
@@ -46,7 +53,9 @@
 		"clearScanZ": "Clear override",
 		"willScanAtOverride": "Will scan at Z{z} (per-tool override)",
 		"willScanAtDefault": "Will scan at Z{z} (global default)",
-		"noScanZ": "No scan height set yet — set one on the Setup tab or here"
+		"noScanZ": "No scan height set yet — set one on the Setup tab or here",
+		"currentTool": "Loaded: {tool}",
+		"noCurrentTool": "No tool loaded"
 	},
 	"reference": {
 		"mode": "Reference",
@@ -70,6 +79,8 @@
 		"variation": "Variation",
 		"scan": "Scan",
 		"scanAll": "Scan all tools",
+		"clearAll": "Clear all captures",
+		"clear": "Clear",
 		"repeatability": "Check repeatability",
 		"empty": "No tools found in the object model.",
 		"methodSwitched": "{type} — fitted with {method}",
