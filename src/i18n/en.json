@@ -36,7 +36,8 @@
 		"mode": "Reference",
 		"tool": "Reference tool",
 		"invert": "Invert offsets",
-		"captureDatum": "Capture datum",
+		"captureDatum": "Capture datum (current position)",
+		"captureDatumHint": "Jog the bare carriage to trigger your fixed reference (e.g. a homing switch that never touches a tool), then click Capture — this just reads the current machine position, no coil measurement involved.",
 		"noDatum": "Not captured yet"
 	},
 	"tools": {

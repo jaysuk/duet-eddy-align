@@ -106,7 +106,7 @@
               :label="$t('plugins.duetEddyAlign.reference.tool')" />
           </v-col>
           <v-col v-else cols="12" sm="4" class="d-flex align-center ga-2">
-            <v-btn size="small" variant="tonal" :loading="scanningTool === DATUM_SENTINEL" @click="onCaptureDatum">
+            <v-btn size="small" variant="tonal" @click="onCaptureDatum">
               {{ $t("plugins.duetEddyAlign.reference.captureDatum") }}
             </v-btn>
             <span class="text-caption">
@@ -117,6 +117,9 @@
             <v-switch v-model="cfg.invertOffsets" density="compact" hide-details :label="$t('plugins.duetEddyAlign.reference.invert')" />
           </v-col>
         </v-row>
+        <div v-if="cfg.referenceMode === 'point'" class="text-caption text-medium-emphasis mb-2">
+          {{ $t("plugins.duetEddyAlign.reference.captureDatumHint") }}
+        </div>
 
         <v-btn size="small" color="primary" variant="tonal" class="mb-3" :disabled="!tools.length"
           :loading="scanningAll" @click="onScanAll">
@@ -192,8 +195,6 @@ import { axisPosition, toolList, useEddyMachineIO } from "../model/machineIO";
 import { jogAxisCode, makeProbeReader } from "../model/orchestrator";
 import { goToProbePosition, scanTool, type ScanCapture } from "../model/scanWorkflow";
 import { computeToolOffset, formatG10, type ToolOffset } from "../util/toolAlign";
-
-const DATUM_SENTINEL = -1;
 
 const machineStore = useMachineStore();
 const cfg = useConfig();
@@ -284,12 +285,24 @@ async function onScanAll(): Promise<void> {
 	scanningAll.value = false;
 }
 
-async function onCaptureDatum(): Promise<void> {
+/**
+ * "Point" mode's datum is a raw position snapshot, not a coil measurement — mirroring how
+ * duet-tool-align's own "Capture datum" works: jog the bare carriage to trigger your fixed
+ * reference (e.g. a homing switch that never touches a tool), then capture, no scan involved. This
+ * intentionally does NOT run the coil sweep — the whole point of a switch/reference that "doesn't
+ * interact with the tools" is that it gives a repeatable position independent of any nozzle, and
+ * every tool's coil-scanned position is already expressed in that same homed coordinate system, so
+ * no extra measurement is needed here, just a readout of where you currently are.
+ */
+function onCaptureDatum(): void {
 	lastError.value = "";
-	scanningTool.value = DATUM_SENTINEL;
-	const capture = await runScan(null);
-	if (capture) datumCapture.value = capture;
-	scanningTool.value = null;
+	const x = axisPosition(machineStore.model, "X");
+	const y = axisPosition(machineStore.model, "Y");
+	if (x == null || y == null) {
+		lastError.value = "X/Y position unavailable — home first";
+		return;
+	}
+	datumCapture.value = { x, y, confidence: 1 };
 }
 
 // --- Offsets ---------------------------------------------------------------------------------

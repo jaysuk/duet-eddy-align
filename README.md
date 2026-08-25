@@ -21,9 +21,14 @@ working control panel:
   probe position (set from current machine position, or jog back to it), and all the scan/motion
   settings (probe `K` index, feeds, settle time, scan window, safe-Z travel).
 - **Scan & Offsets tab** — per-tool or scan-all, a results table (captured position, confidence,
-  computed `G10`), reference-tool or fixed-datum-point modes, and Apply/Save with the same
-  show-the-exact-command confirm dialog `duet-tool-align` uses. `computeToolOffset`/`formatG10`
-  (`src/util/toolAlign.ts`) are ported verbatim from there, same sign convention.
+  computed `G10`), and Apply/Save with the same show-the-exact-command confirm dialog
+  `duet-tool-align` uses. `computeToolOffset`/`formatG10` (`src/util/toolAlign.ts`) are ported
+  verbatim from there, same sign convention. Two reference modes, matching two real E3D
+  Tool Changer setups: **"tool"** mode measures every tool against a chosen reference tool (e.g. T0);
+  **"point"** mode measures every tool against a fixed carriage datum instead — captured as a raw
+  position snapshot (jog the bare carriage to trigger a fixed reference like a homing switch that
+  never touches a tool, then Capture), not a coil measurement, mirroring exactly how
+  duet-tool-align's own "Capture datum" works.
 
 Not built yet / still open: baseline correction isn't wired into the scan workflow (deferred until a
 real sweep's background shape is characterised — the 30mm metal-proximity warning in
