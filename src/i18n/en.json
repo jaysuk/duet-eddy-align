@@ -22,7 +22,7 @@
 		"setProbeZ": "Set scan height Z (current position)",
 		"goToProbe": "Go to probe position",
 		"probeIndex": "Probe number (M558 K)",
-		"safeZ": "Safe Z (blank = no lift)",
+		"safeZ": "Safe Z floor (blank = no lift; only raises, never lowers)",
 		"useG53": "Travel in machine coordinates (G53)",
 		"travelFeed": "Travel feed (mm/min)",
 		"jogFeed": "Jog feed (mm/min)",

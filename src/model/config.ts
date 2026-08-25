@@ -18,7 +18,9 @@ export interface EddyAlignConfig {
 	probeY: number | null;
 	/** Scan height — Z to descend to before sweeping. */
 	probeZ: number | null;
-	/** Safe Z to lift to before travelling between tools/the probe. */
+	/** Clearance floor before travelling between tools/the probe — only ever raises Z (never lowers
+	 *  it) to at least this height, and does nothing if already at or above it. See
+	 *  scanWorkflow.ts's goToProbePosition for why this must not be an unconditional target. */
 	safeZ: number | null;
 	/** Use G53 (machine coords) for travel moves so a mid-run tool offset can't shift them. */
 	useG53: boolean;

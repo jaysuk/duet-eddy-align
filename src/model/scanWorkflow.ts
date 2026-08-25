@@ -35,14 +35,30 @@ export function buildScanOffsets(halfWidth: number, step: number): number[] {
 	return offsets;
 }
 
-/** Lift to safeZ (if set), travel to the saved probe XY, then descend to the scan height. */
+/**
+ * Lift to at least safeZ (if set and the machine is currently below it), travel to the saved probe
+ * XY, then descend to the scan height.
+ *
+ * safeZ is a clearance *floor*, not a fixed waypoint — deliberately only ever moves Z up, never down.
+ * An earlier version issued an unconditional absolute `G1 Z<safeZ>`, which is safe only if the
+ * machine always happens to be below safeZ when this runs; whenever it wasn't (jogged up manually,
+ * or just sitting wherever the previous command left it — e.g. probeZ from the end of a prior scan,
+ * if that happens to be above this run's safeZ), that command moved Z *down* toward safeZ instead,
+ * exactly backwards from what "safe" means. Reading the current position first and skipping the move
+ * entirely when it's already at or above safeZ fixes that without losing the clearance guarantee.
+ */
 export async function goToProbePosition(io: MachineIO, cfg: EddyAlignConfig): Promise<void> {
 	if (cfg.probeX == null || cfg.probeY == null) {
 		throw new Error("Set the probe position first (Setup panel)");
 	}
 	const g53 = cfg.useG53 ? "G53 " : "";
 	const lines: string[] = [];
-	if (cfg.safeZ != null) lines.push(`${g53}G1 Z${cfg.safeZ} F${cfg.travelFeed}`);
+	if (cfg.safeZ != null) {
+		const currentZ = io.machinePos("Z");
+		if (currentZ == null || currentZ < cfg.safeZ) {
+			lines.push(`${g53}G1 Z${cfg.safeZ} F${cfg.travelFeed}`);
+		}
+	}
 	lines.push(`${g53}G1 X${cfg.probeX} Y${cfg.probeY} F${cfg.travelFeed}`);
 	if (cfg.probeZ != null) lines.push(`${g53}G1 Z${cfg.probeZ} F${cfg.travelFeed}`);
 	lines.push("M400");

@@ -54,6 +54,34 @@ describe("goToProbePosition", () => {
 		const { io } = fakeIO();
 		await expect(goToProbePosition(io, defaultConfig())).rejects.toThrow(/probe position/i);
 	});
+
+	it("[safeZ fix] skips the lift when Z is already at or above safeZ, instead of moving down to it", async () => {
+		const { io, codes } = fakeIO({ Z: 20 }); // currently well above safeZ
+		const cfg = { ...defaultConfig(), safeZ: 5, probeX: 50, probeY: 60, probeZ: null, useG53: true, travelFeed: 6000 };
+
+		await goToProbePosition(io, cfg);
+
+		// No "G1 Z5" anywhere -- that would have been a downward move from Z20 to Z5.
+		expect(codes).toEqual(["G53 G1 X50 Y60 F6000\nM400"]);
+	});
+
+	it("[safeZ fix] still lifts when Z is below safeZ", async () => {
+		const { io, codes } = fakeIO({ Z: 2 });
+		const cfg = { ...defaultConfig(), safeZ: 5, probeX: 50, probeY: 60, probeZ: null, useG53: true, travelFeed: 6000 };
+
+		await goToProbePosition(io, cfg);
+
+		expect(codes).toEqual(["G53 G1 Z5 F6000\nG53 G1 X50 Y60 F6000\nM400"]);
+	});
+
+	it("[safeZ fix] lifts when Z is exactly at safeZ too (boundary is inclusive on the safe side)", async () => {
+		const { io, codes } = fakeIO({ Z: 5 });
+		const cfg = { ...defaultConfig(), safeZ: 5, probeX: 50, probeY: 60, probeZ: null, useG53: true, travelFeed: 6000 };
+
+		await goToProbePosition(io, cfg);
+
+		expect(codes).toEqual(["G53 G1 X50 Y60 F6000\nM400"]); // already at the floor, no move needed
+	});
 });
 
 describe("scanTool", () => {
