@@ -1,0 +1,9 @@
+{
+	"title": "Eddy Align",
+	"menuCaption": "Eddy Align",
+	"status": {
+		"heading": "Scan-based tool alignment",
+		"body": "Uses the fixed-mount Scanning Z Probe to locate each tool's nozzle center by sweeping it across the coil, instead of a camera. The scan-orchestration and UI are still being built — see the repo for the peak-fitting math that's already in place and unit-tested.",
+		"repoLink": "View source on GitHub"
+	}
+}
