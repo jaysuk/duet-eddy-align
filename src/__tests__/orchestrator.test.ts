@@ -166,6 +166,57 @@ describe("runCrossScan", () => {
 		expect(result.error).toMatch(/disagree on response polarity/);
 	});
 
+	describe("[Step 2] bidirectional", () => {
+		const reversedOffsets = offsets.slice().reverse();
+
+		it("sweeps each axis forward and reverse, and averages the two fits with a directionalSpread diagnostic", async () => {
+			const { io } = fakeIO({ X: 100, Y: 50 });
+			const xFwdMu = 0.3, xRevMu = 0.5, yFwdMu = -0.1, yRevMu = -0.3;
+			const readings = [
+				...offsets.map((o) => gaussian(o, xFwdMu)), // X forward
+				...reversedOffsets.map((o) => gaussian(o, xRevMu)), // X reverse
+				...offsets.map((o) => gaussian(o, yFwdMu)), // Y forward
+				...reversedOffsets.map((o) => gaussian(o, yRevMu)), // Y reverse
+			];
+
+			const result = await runCrossScan(
+				io, queueReader(readings), offsets, { jogFeed: 600, settleMs: 0, bidirectional: true },
+			);
+
+			expect(result.ok).toBe(true);
+			expect(Math.abs((result.position?.x ?? NaN) - (100 + (xFwdMu + xRevMu) / 2))).toBeLessThan(0.1);
+			expect(Math.abs((result.position?.y ?? NaN) - (50 + (yFwdMu + yRevMu) / 2))).toBeLessThan(0.1);
+			expect(result.directionalSpread?.x).toBeGreaterThan(0.1); // true spread is 0.2
+			expect(result.directionalSpread?.x).toBeLessThan(0.3);
+			expect(result.directionalSpread?.y).toBeGreaterThan(0.1);
+			expect(result.directionalSpread?.y).toBeLessThan(0.3);
+		});
+
+		it("fails with a direction-labelled error when the reverse pass is incomplete", async () => {
+			const { io } = fakeIO({ X: 100, Y: 50 });
+			const xFwd = offsets.map((o) => gaussian(o, 0.3)); // complete
+			const xRev = reversedOffsets.map((o, i) => i); // monotonic -> incomplete
+			const result = await runCrossScan(
+				io, queueReader([...xFwd, ...xRev]), offsets, { jogFeed: 600, settleMs: 0, bidirectional: true },
+			);
+
+			expect(result.ok).toBe(false);
+			expect(result.error).toMatch(/X reverse sweep incomplete/);
+		});
+
+		it("fails when forward and reverse disagree on response polarity", async () => {
+			const { io } = fakeIO({ X: 100, Y: 50 });
+			const xFwd = offsets.map((o) => gaussian(o, 0.3)); // peak
+			const xRev = reversedOffsets.map((o) => -gaussian(o, 0.3)); // valley
+			const result = await runCrossScan(
+				io, queueReader([...xFwd, ...xRev]), offsets, { jogFeed: 600, settleMs: 0, bidirectional: true },
+			);
+
+			expect(result.ok).toBe(false);
+			expect(result.error).toMatch(/X forward and reverse sweeps disagree/);
+		});
+	});
+
 	it("reports abort without throwing", async () => {
 		const { io } = fakeIO({ X: 100, Y: 50 });
 		const result = await runCrossScan(

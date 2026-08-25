@@ -46,6 +46,11 @@ export interface EddyAlignConfig {
 	 *  fit's bias/variance tradeoff) — same "pending real hardware calibration" status as
 	 *  quality.ts's sigmaNominal, see docs/open-questions.md. */
 	weightedQuadraticSigma: number;
+	/** Sweep each axis both forward and reversed, averaging the two fits to cancel
+	 *  direction-dependent bias (backlash/settling asymmetry). Off by default — roughly doubles scan
+	 *  time per axis. See orchestrator.ts's CrossScanParams.bidirectional for what the resulting
+	 *  directionalSpread diagnostic does and doesn't measure. */
+	bidirectionalScan: boolean;
 
 	/**
 	 * How the 0,0 origin is defined — same two modes as duet-tool-align:
@@ -98,6 +103,7 @@ export function defaultConfig(): EddyAlignConfig {
 		scanStep: 0.5,
 		fitMethod: "gaussianLog",
 		weightedQuadraticSigma: 1.0,
+		bidirectionalScan: false,
 		referenceMode: "tool",
 		referenceTool: 0,
 		zeroReferenceOffset: true,

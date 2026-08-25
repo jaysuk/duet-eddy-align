@@ -13,5 +13,6 @@ describe("defaultConfig", () => {
 		expect(cfg.zeroReferenceOffset).toBe(true); // scan the reference tool fresh by default, don't trust a stale G10
 		expect(cfg.fitMethod).toBe("gaussianLog"); // weightedQuadratic is opt-in / auto-switch only
 		expect(cfg.weightedQuadraticSigma).toBeGreaterThan(0);
+		expect(cfg.bidirectionalScan).toBe(false); // opt-in, roughly doubles scan time
 	});
 });

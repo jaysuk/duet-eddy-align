@@ -16,6 +16,8 @@ export interface ScanCapture {
 	/** The fit actually used — differs from cfg.fitMethod exactly when a detected valley
 	 *  auto-switched to weightedQuadratic; always report it, never assume it matches cfg. */
 	methodUsed?: "gaussianLog" | "weightedQuadratic";
+	/** Bidirectional mode only — see orchestrator.ts's CrossScanResult.directionalSpread. */
+	directionalSpread?: { x: number; y: number };
 }
 
 export interface ScanOutcome {
@@ -67,6 +69,7 @@ export async function scanTool(
 		const result = await runCrossScan(io, readProbe, offsets, {
 			jogFeed: cfg.jogFeed, settleMs: cfg.settleMs,
 			fitMethod: cfg.fitMethod, weightedQuadraticSigma: cfg.weightedQuadraticSigma,
+			bidirectional: cfg.bidirectionalScan,
 		}, progress);
 		if (!result.ok || !result.position) {
 			return { ok: false, error: result.error ?? "scan failed" };
@@ -76,6 +79,7 @@ export async function scanTool(
 			capture: {
 				x: result.position.x, y: result.position.y, confidence: result.confidence ?? 0,
 				peakType: result.peakType, methodUsed: result.methodUsed,
+				directionalSpread: result.directionalSpread,
 			},
 		};
 	} catch (err) {

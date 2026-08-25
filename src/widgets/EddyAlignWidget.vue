@@ -93,8 +93,15 @@
             <v-text-field v-model.number="cfg.weightedQuadraticSigma" type="number" density="compact"
               :label="$t('plugins.duetEddyAlign.setup.weightedQuadraticSigma')" />
           </v-col>
+          <v-col cols="12" sm="8" class="d-flex align-center">
+            <v-switch v-model="cfg.bidirectionalScan" density="compact" hide-details
+              :label="$t('plugins.duetEddyAlign.setup.bidirectionalScan')" />
+          </v-col>
         </v-row>
         <div class="text-caption text-medium-emphasis mb-2">{{ $t("plugins.duetEddyAlign.setup.fitMethodHint") }}</div>
+        <div v-if="cfg.bidirectionalScan" class="text-caption text-medium-emphasis mb-2">
+          {{ $t("plugins.duetEddyAlign.setup.bidirectionalHint") }}
+        </div>
       </v-card-text>
     </v-window-item>
 
@@ -157,7 +164,14 @@
             <tr v-for="row in rows" :key="row.number">
               <td>{{ row.name }}</td>
               <td>{{ row.curX != null ? `${row.curX.toFixed(2)}, ${row.curY?.toFixed(2)}` : "—" }}</td>
-              <td>{{ row.capture ? `${row.capture.x.toFixed(3)}, ${row.capture.y.toFixed(3)}` : "—" }}</td>
+              <td>
+                {{ row.capture ? `${row.capture.x.toFixed(3)}, ${row.capture.y.toFixed(3)}` : "—" }}
+                <div v-if="row.capture?.directionalSpread" class="text-caption text-medium-emphasis">
+                  {{ $t("plugins.duetEddyAlign.tools.directionalSpread", {
+                    x: row.capture.directionalSpread.x.toFixed(3), y: row.capture.directionalSpread.y.toFixed(3),
+                  }) }}
+                </div>
+              </td>
               <td>
                 {{ row.capture ? row.capture.confidence.toFixed(2) : "—" }}
                 <div v-if="row.capture?.methodUsed && row.capture.methodUsed !== cfg.fitMethod" class="text-caption text-medium-emphasis">

@@ -13,7 +13,7 @@
  * motion — that was a platform/UX choice, not something the object-model answer forces.
  */
 import { estimateDcBaseline } from "./eddyScan/baseline";
-import { type FitMethod, resolvePeakFit } from "./eddyScan/peak1d";
+import { type FitMethod, type ResolvedPeak, resolvePeakFit } from "./eddyScan/peak1d";
 import { detectPeakType, isIncompleteSweep } from "./eddyScan/quality";
 
 export interface MachineIO {
@@ -124,6 +124,18 @@ export interface CrossScanParams extends SweepParams {
 	/** Gaussian weighting bandwidth (mm) for the weightedQuadratic fit, whether requested directly
 	 *  or reached via auto-switch. */
 	weightedQuadraticSigma?: number;
+	/**
+	 * Sweep each axis both forward (`offsets` as given) and reversed, fit independently, and average
+	 * the two positions — cancels direction-dependent bias (backlash/settling asymmetry) from the
+	 * per-step travel direction flipping between passes. Opt-in (default false): roughly doubles
+	 * scan time per axis, and the reverse pass runs after the forward one, so what
+	 * `directionalSpread` reports is genuinely **direction/time disagreement**, not backlash alone —
+	 * SZP temperature sensitivity is explicitly unresolved (docs/open-questions.md), and averaging
+	 * removes direction-dependent bias while doing nothing about drift accumulated in the meantime.
+	 * `settleMs` remains the only lever for undersettled samples, applied identically in both
+	 * directions and unchanged by this option.
+	 */
+	bidirectional?: boolean;
 }
 
 export interface CrossScanResult {
@@ -135,10 +147,46 @@ export interface CrossScanResult {
 	/** The fit actually used. Differs from the requested fitMethod exactly when resolvePeakFit
 	 *  auto-switched on a detected valley — always report this, never assume it matches the request. */
 	methodUsed?: FitMethod;
+	/** Bidirectional mode only: |forward - reverse| position per axis. A real diagnostic (large
+	 *  spread means direction/time-dependent bias is actually present on this machine) but not a
+	 *  pure backlash measurement — see CrossScanParams.bidirectional's doc comment. */
+	directionalSpread?: { x: number; y: number };
 	error?: string;
 }
 
 export interface ProgressSink { status?: (message: string) => void; }
+
+interface AxisScanResult {
+	ok: true;
+	peakType: "peak" | "valley";
+	fit: ResolvedPeak;
+}
+interface AxisScanFailure { ok: false; error: string; }
+
+/**
+ * Sweep one axis (in whatever offset order it's given — the caller controls forward vs. reverse) and
+ * fit it, sharing the completeness/curvature/DC-baseline logic between runCrossScan's plain and
+ * bidirectional paths. `label` is what appears in error messages ("X" vs. "X reverse") — the actual
+ * motion axis is always just "X" or "Y", sweepLine doesn't know or care about direction.
+ */
+async function sweepAndFit(
+	io: MachineIO, readProbe: ReadProbe, axis: "X" | "Y", offsets: number[], params: CrossScanParams, label: string,
+): Promise<AxisScanResult | AxisScanFailure> {
+	const samples = await sweepLine(io, readProbe, axis, offsets, params);
+	if (params.shouldAbort?.()) return { ok: false, error: "aborted" };
+
+	const fs = samples.map((p) => p.f);
+	const peakType = detectPeakType(fs);
+	if (isIncompleteSweep(fs, peakType)) {
+		return { ok: false, error: `${label} sweep incomplete — peak sat at the edge of the scan window` };
+	}
+
+	const fitMethod = params.fitMethod ?? "gaussianLog";
+	const fit = resolvePeakFit(samples.map((p) => p.x), fs, fitMethod, {
+		peakType, sigma: params.weightedQuadraticSigma, baseline: estimateDcBaseline(fs),
+	});
+	return { ok: true, peakType, fit };
+}
 
 /**
  * Cross scan: sweep X then Y through the current position, sub-sample fit each independently, and
@@ -151,7 +199,8 @@ export interface ProgressSink { status?: (message: string) => void; }
  * weightedQuadratic on a detected valley (gaussianLog can't fit one — it needs a positive signal
  * with a maximum). X and Y must agree on polarity: they measure the same physical coupling through
  * the same coil seconds apart, so disagreement means something's wrong (most likely one sweep missed
- * the coil), not two independently-valid measurements to average past.
+ * the coil), not two independently-valid measurements to average past. With `bidirectional` on, the
+ * same agreement requirement applies to each axis's forward vs. reverse pass, for the same reason.
  *
  * Only a DC-offset baseline (baseline.ts's estimateDcBaseline) is applied here — subtracting the
  * mean of the outer samples so gaussianLogFit's near-peak minFraction filter actually engages on a
@@ -166,44 +215,68 @@ export async function runCrossScan(
 ): Promise<CrossScanResult> {
 	try {
 		progress?.status?.("Sweeping X…");
-		const xSamples = await sweepLine(io, readProbe, "X", offsets, params);
-		if (params.shouldAbort?.()) return { ok: false, error: "aborted" };
-		const xFs = xSamples.map((p) => p.f);
-		const xPeakType = detectPeakType(xFs);
-		if (isIncompleteSweep(xFs, xPeakType)) {
-			return { ok: false, error: "X sweep incomplete — peak sat at the edge of the scan window" };
+		const xFwd = await sweepAndFit(io, readProbe, "X", offsets, params, "X");
+		if (!xFwd.ok) return { ok: false, error: xFwd.error };
+
+		let xRev: AxisScanResult | null = null;
+		if (params.bidirectional) {
+			progress?.status?.("Sweeping X (reverse)…");
+			const rev = await sweepAndFit(io, readProbe, "X", offsets.slice().reverse(), params, "X reverse");
+			if (!rev.ok) return { ok: false, error: rev.error };
+			if (rev.peakType !== xFwd.peakType) {
+				return {
+					ok: false,
+					error: "X forward and reverse sweeps disagree on response polarity — the response may be too marginal to trust",
+				};
+			}
+			xRev = rev;
 		}
 
 		progress?.status?.("Sweeping Y…");
-		const ySamples = await sweepLine(io, readProbe, "Y", offsets, params);
-		if (params.shouldAbort?.()) return { ok: false, error: "aborted" };
-		const yFs = ySamples.map((p) => p.f);
-		const yPeakType = detectPeakType(yFs);
-		if (isIncompleteSweep(yFs, yPeakType)) {
-			return { ok: false, error: "Y sweep incomplete — peak sat at the edge of the scan window" };
+		const yFwd = await sweepAndFit(io, readProbe, "Y", offsets, params, "Y");
+		if (!yFwd.ok) return { ok: false, error: yFwd.error };
+
+		let yRev: AxisScanResult | null = null;
+		if (params.bidirectional) {
+			progress?.status?.("Sweeping Y (reverse)…");
+			const rev = await sweepAndFit(io, readProbe, "Y", offsets.slice().reverse(), params, "Y reverse");
+			if (!rev.ok) return { ok: false, error: rev.error };
+			if (rev.peakType !== yFwd.peakType) {
+				return {
+					ok: false,
+					error: "Y forward and reverse sweeps disagree on response polarity — the response may be too marginal to trust",
+				};
+			}
+			yRev = rev;
 		}
 
-		if (xPeakType !== yPeakType) {
+		if (xFwd.peakType !== yFwd.peakType) {
 			return {
 				ok: false,
 				error: "X and Y disagree on response polarity — the scan may not be centred on the coil",
 			};
 		}
 
-		const fitMethod = params.fitMethod ?? "gaussianLog";
-		const xFit = resolvePeakFit(xSamples.map((p) => p.x), xFs, fitMethod, {
-			peakType: xPeakType, sigma: params.weightedQuadraticSigma, baseline: estimateDcBaseline(xFs),
-		});
-		const yFit = resolvePeakFit(ySamples.map((p) => p.x), yFs, fitMethod, {
-			peakType: yPeakType, sigma: params.weightedQuadraticSigma, baseline: estimateDcBaseline(yFs),
-		});
+		if (xRev && yRev) {
+			return {
+				ok: true,
+				position: { x: (xFwd.fit.x + xRev.fit.x) / 2, y: (yFwd.fit.x + yRev.fit.x) / 2 },
+				confidence: Math.min(xFwd.fit.rSquared, xRev.fit.rSquared, yFwd.fit.rSquared, yRev.fit.rSquared),
+				peakType: xFwd.peakType,
+				methodUsed: xFwd.fit.methodUsed,
+				directionalSpread: {
+					x: Math.abs(xFwd.fit.x - xRev.fit.x),
+					y: Math.abs(yFwd.fit.x - yRev.fit.x),
+				},
+			};
+		}
 
 		return {
 			ok: true,
-			position: { x: xFit.x, y: yFit.x },
-			confidence: Math.min(xFit.rSquared, yFit.rSquared),
-			peakType: xPeakType,
-			methodUsed: xFit.methodUsed,
+			position: { x: xFwd.fit.x, y: yFwd.fit.x },
+			confidence: Math.min(xFwd.fit.rSquared, yFwd.fit.rSquared),
+			peakType: xFwd.peakType,
+			methodUsed: xFwd.fit.methodUsed,
 		};
 	} catch (err) {
 		return { ok: false, error: err instanceof Error ? err.message : String(err) };

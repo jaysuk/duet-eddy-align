@@ -33,7 +33,9 @@
 		"zStep": "Manual jog step, Z (mm)",
 		"fitMethod": "Fit method",
 		"weightedQuadraticSigma": "Weighted quadratic sigma (mm)",
-		"fitMethodHint": "Weighted quadratic is immune to a DC-offset signal and handles a valley-shaped response natively. A detected valley auto-switches to it regardless of this setting — the results table shows a note when that happens."
+		"fitMethodHint": "Weighted quadratic is immune to a DC-offset signal and handles a valley-shaped response natively. A detected valley auto-switches to it regardless of this setting — the results table shows a note when that happens.",
+		"bidirectionalScan": "Bidirectional sweep (forward + reverse, averaged)",
+		"bidirectionalHint": "Sweeps each axis both directions and averages the fits, cancelling direction-dependent bias (backlash/settling asymmetry) — roughly doubles scan time. The reported spread also picks up drift between the two passes, not just backlash, since the reverse pass runs after the forward one."
 	},
 	"reference": {
 		"mode": "Reference",
@@ -54,7 +56,8 @@
 		"scan": "Scan",
 		"scanAll": "Scan all tools",
 		"empty": "No tools found in the object model.",
-		"methodSwitched": "{type} — fitted with {method}"
+		"methodSwitched": "{type} — fitted with {method}",
+		"directionalSpread": "±{x}, {y} fwd/rev spread"
 	},
 	"offsets": {
 		"applyAll": "Apply all",
