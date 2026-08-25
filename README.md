@@ -12,9 +12,14 @@ resonant-frequency response; fitting that response's sub-sample peak per tool gi
 
 **v0.1.0 — scaffold.** The signal-processing core (`src/model/eddyScan/`) is complete and unit-tested:
 baseline removal, Savitzky-Golay smoothing, 1D/2D sub-sample peak fitting (parabolic, Gaussian,
-centroid), and confidence scoring. Motion orchestration and the scan UI are not built yet — see
-[docs/open-questions.md](docs/open-questions.md) for the integration question that needs answering
-first (whether RRF exposes raw scanning-probe samples position-synced during an XY move).
+centroid), and confidence scoring. `src/model/orchestrator.ts` sequences a per-tool **cross scan**
+(sweep X, sweep Y, Gaussian-fit each) behind injected `MachineIO`/`ReadProbe` seams — its exact
+G-code and an end-to-end synthetic recovery are both unit tested — using **triggered step-and-sample**
+(jog, `M400`, read one settled value) rather than a continuous synced sweep, since it's standalone-Duet
+target means it can't assume a native/DSF sampling path. What `ReadProbe` actually calls on real
+firmware is still open — see [docs/open-questions.md](docs/open-questions.md). Not built yet: the scan
+UI, and baseline correction wired into the orchestrator (deferred until a real sweep's background
+shape is characterised on hardware).
 
 ## Math
 
