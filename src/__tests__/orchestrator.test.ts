@@ -82,6 +82,14 @@ describe("makeProbeReader", () => {
 		const ioNoResult: MachineIO = { sendCode: async () => '{"key":"x","result":"n/a"}', machinePos: () => null };
 		await expect(makeProbeReader(ioNoResult)()).resolves.toBeNull();
 	});
+
+	it("treats RRF's 999999 out-of-range sentinel as null, not a real reading", async () => {
+		const io: MachineIO = { sendCode: async () => '{"result":999999}', machinePos: () => null };
+		await expect(makeProbeReader(io)()).resolves.toBeNull();
+
+		const ioNeg: MachineIO = { sendCode: async () => '{"result":-999999}', machinePos: () => null };
+		await expect(makeProbeReader(ioNeg)()).resolves.toBeNull();
+	});
 });
 
 describe("runCrossScan", () => {

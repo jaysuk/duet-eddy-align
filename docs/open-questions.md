@@ -38,15 +38,33 @@ Implemented as `makeProbeReader(io, probeIndex)` in `src/model/orchestrator.ts`,
   elapsed time) is a plausible future speed-up now that the raw field is confirmed live, but adds
   timing/interpolation error that step-and-sample avoids.
 
-## Still open
+## Still open, now with real numbers (2026-08-25, from Duet3D/wiki-content)
 
-- The physical scan parameters (Z clearance/standoff, sweep width, feed rate, expected `σ` of the
-  Gaussian response) — these need a real SZP + nozzle to characterise, not something source-reading
-  resolves. `src/model/eddyScan/quality.ts`'s `sigmaNominal` and `docs/math` background-separation
-  guidance both assume this gets measured once on real hardware.
-- Whether the background from the heater block/wiring (see the artifact's §4 reasoning, ported into
-  `src/model/eddyScan/baseline.ts`) is small enough at typical scan heights to ignore initially, or
-  needs wiring into the orchestrator from day one. Deferred until there's a real sweep to look at.
+Checked `User_manual/Tuning/scanning_z_probe_calibration.md` and the `M558`/`M558.1`/`M558.2` gcode
+dictionary pages directly. Doesn't fully resolve the remaining items but replaces guesswork with
+Duet3D's own published numbers:
+
+- **The heater-block/wiring background is confirmed, not just plausible.** The official mounting
+  guidance says outright: *"Make sure there is no metal in the 30mm ABOVE the coil, or it will pick
+  this up and give false readings."* That's a hard, quantified confirmation of the artifact's §4
+  reasoning behind `baseline.ts` — the background isn't a theoretical concern, Duet3D's own docs treat
+  it as the primary mounting hazard. Use 30mm as the starting scale for `highpassDoG`'s `sigmaWide`
+  (should be well inside that radius so it captures the background but not the tip) once there's a
+  real sweep to tune it against.
+- **Typical standoff, from the same guide:** coil sits 1-2mm above the nozzle tip; trigger height
+  (`G31 Z`) is commonly set around 2mm, putting the coil ~4mm from the bed. A reasonable starting
+  point for the scan-height default, not a substitute for calibrating it on real hardware.
+- **`999999` (and presumably `-999999`) is a documented invalid-reading sentinel**, not just an
+  observed one — "the aim is to get sensible readings (i.e. not 999999)" from drive-current
+  calibration (`M558.2 S-1`). `orchestrator.ts`'s `makeProbeReader` now filters it out.
+- **Typical drive current ~15 for a 12mm coil** (`M558.2 K<n> S15 R<offset>` in the example config) —
+  a plausible default to suggest in setup UI, still something to actually calibrate per-unit via
+  `M558.2 S-1` rather than hardcode.
+- Still genuinely unresolved (no wiki page addresses it — RRF's built-in scanning workflow is Z-only
+  mesh compensation, `G29`/`M558.1`, with no XY raster/cross-scan primitive): the expected `σ` /
+  Gaussian-response shape and sweep width for lateral (XY) coil coupling, since that's not what the
+  SZP is designed or documented for. `src/model/eddyScan/quality.ts`'s `sigmaNominal` still needs a
+  real sweep to calibrate.
 
 ## Prior art
 

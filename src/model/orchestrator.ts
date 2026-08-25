@@ -89,13 +89,21 @@ export async function sweepLine(
  *
  * `settleMs` in SweepParams is therefore purely about mechanical/coil settling after the jog, not
  * about waiting out a polling interval — M409 always returns the value as of when it's asked.
+ *
+ * `INVALID_READING_SENTINEL`: the wiki's Scanning Z Probe Calibration guide documents 999999 as the
+ * firmware's out-of-range/no-lock reading (drive current miscalibrated, or the sensor too far from
+ * any metal) — "the aim is to get sensible readings (i.e. not 999999)". Treated as null here so it
+ * doesn't get fitted as if it were a real sample.
  */
+const INVALID_READING_SENTINEL = 999999;
+
 export function makeProbeReader(io: MachineIO, probeIndex = 0): ReadProbe {
 	return async () => {
 		const reply = await io.sendCode(`M409 K"sensors.probes[${probeIndex}].value[0]"`);
 		try {
 			const parsed = JSON.parse(String(reply)) as { result?: unknown };
-			return typeof parsed.result === "number" ? parsed.result : null;
+			const value = parsed.result;
+			return typeof value === "number" && Math.abs(value) !== INVALID_READING_SENTINEL ? value : null;
 		} catch {
 			return null;
 		}
