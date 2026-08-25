@@ -19,5 +19,6 @@ describe("defaultConfig", () => {
 		expect(cfg.refineMaxPasses).toBe(3);
 		expect(cfg.refineShrink).toBe(0.5);
 		expect(cfg.refineTolerance).toBeGreaterThan(0);
+		expect(cfg.datumPoint).toBeNull();
 	});
 });

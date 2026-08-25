@@ -97,6 +97,16 @@ export interface EddyAlignConfig {
 	/** Negate computed offsets (machine/firmware sign convention escape hatch). */
 	invertOffsets: boolean;
 
+	/**
+	 * "point" mode's fixed carriage datum, persisted rather than session-only: with the coil rigidly
+	 * bed-mounted and the datum switch fixed to the carriage, this position is stable long-term, so
+	 * re-capturing it every session is pure friction. Just {x, y} -- unlike a tool's capture, there's
+	 * no confidence/fit involved (it's a raw position readout, not a coil measurement), so it isn't
+	 * shaped like a ScanCapture. capturedAt is an ISO timestamp, shown in the UI so a datum that's
+	 * silently gone stale (switch bumped, homing changed) is at least visible, not invented.
+	 */
+	datumPoint: { x: number; y: number; capturedAt: string } | null;
+
 	/** Manual jog steps for the Setup panel. */
 	xyStep: number;
 	zStep: number;
@@ -136,6 +146,7 @@ export function defaultConfig(): EddyAlignConfig {
 		referenceTool: 0,
 		zeroReferenceOffset: true,
 		invertOffsets: false,
+		datumPoint: null,
 		xyStep: 0.5,
 		zStep: 0.1,
 		livePollMs: 300,

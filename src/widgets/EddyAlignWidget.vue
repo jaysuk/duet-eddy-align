@@ -131,13 +131,18 @@
             <v-select v-model.number="cfg.referenceTool" density="compact" :items="toolOptions"
               :label="$t('plugins.duetEddyAlign.reference.tool')" />
           </v-col>
-          <v-col v-else cols="12" sm="4" class="d-flex align-center ga-2">
+          <v-col v-else cols="12" sm="4" class="d-flex align-center flex-wrap ga-2">
             <v-btn size="small" variant="tonal" @click="onCaptureDatum">
               {{ $t("plugins.duetEddyAlign.reference.captureDatum") }}
             </v-btn>
-            <span class="text-caption">
-              {{ datumCapture ? `X${datumCapture.x.toFixed(3)} Y${datumCapture.y.toFixed(3)}` : $t("plugins.duetEddyAlign.reference.noDatum") }}
+            <span v-if="cfg.datumPoint" class="text-caption">
+              X{{ cfg.datumPoint.x.toFixed(3) }} Y{{ cfg.datumPoint.y.toFixed(3) }}
+              — {{ $t("plugins.duetEddyAlign.reference.datumCapturedAt", { date: new Date(cfg.datumPoint.capturedAt).toLocaleString() }) }}
             </span>
+            <span v-else class="text-caption">{{ $t("plugins.duetEddyAlign.reference.noDatum") }}</span>
+            <v-btn v-if="cfg.datumPoint" size="small" variant="text" @click="onClearDatum">
+              {{ $t("plugins.duetEddyAlign.reference.clearDatum") }}
+            </v-btn>
           </v-col>
           <v-col cols="12" sm="4" class="d-flex align-center">
             <v-switch v-model="cfg.invertOffsets" density="compact" hide-details :label="$t('plugins.duetEddyAlign.reference.invert')" />
@@ -341,7 +346,14 @@ async function onGoToProbe(): Promise<void> {
 // --- Scanning ------------------------------------------------------------------------------
 
 const captures = reactive<Record<number, ScanCapture>>({});
-const datumCapture = ref<ScanCapture | null>(null);
+/** Derived from the persisted cfg.datumPoint (see config.ts) rather than held as its own ref, so a
+ *  captured datum survives a reload. Shaped as a ScanCapture (confidence: 1) purely for
+ *  computeOffsetRows's sake -- that "confidence" isn't a real fit quality, just a placeholder for a
+ *  raw position reading, same as before this became persisted. */
+const datumCapture = computed<ScanCapture | null>(() => {
+	const d = cfg.datumPoint;
+	return d ? { x: d.x, y: d.y, confidence: 1 } : null;
+});
 const scanningTool = ref<number | null>(null);
 const scanningAll = ref(false);
 const statusText = ref("");
@@ -433,7 +445,11 @@ function onCaptureDatum(): void {
 		lastError.value = "X/Y position unavailable — home first";
 		return;
 	}
-	datumCapture.value = { x, y, confidence: 1 };
+	cfg.datumPoint = { x, y, capturedAt: new Date().toISOString() };
+}
+
+function onClearDatum(): void {
+	cfg.datumPoint = null;
 }
 
 // --- Offsets ---------------------------------------------------------------------------------

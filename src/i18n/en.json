@@ -47,7 +47,9 @@
 		"zeroReferenceHint": "The reference tool still gets scanned via its own Scan button — this just stops its offset from inheriting its current G10, so a from-scratch calibration doesn't silently trust a value nobody has verified. Turn off to keep the reference tool's existing offset unchanged instead.",
 		"captureDatum": "Capture datum (current position)",
 		"captureDatumHint": "Jog the bare carriage to trigger your fixed reference (e.g. a homing switch that never touches a tool), then click Capture — this just reads the current machine position, no coil measurement involved.",
-		"noDatum": "Not captured yet"
+		"noDatum": "Not captured yet",
+		"datumCapturedAt": "captured {date}",
+		"clearDatum": "Clear"
 	},
 	"tools": {
 		"tool": "Tool",
