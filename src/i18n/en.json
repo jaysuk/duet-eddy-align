@@ -51,6 +51,7 @@
 	},
 	"tools": {
 		"tool": "Tool",
+		"stop": "Stop",
 		"current": "Current G10",
 		"captured": "Captured (X, Y)",
 		"confidence": "Confidence",

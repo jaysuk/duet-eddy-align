@@ -112,7 +112,12 @@
 
     <v-window-item value="scan">
       <v-card-text>
-        <div v-if="statusText" class="text-body-2 mb-2">{{ statusText }}</div>
+        <div v-if="statusText || isBusy" class="d-flex align-center ga-2 mb-2">
+          <div v-if="statusText" class="text-body-2">{{ statusText }}</div>
+          <v-btn v-if="isBusy" size="small" variant="tonal" color="error" @click="stopOperation">
+            {{ $t("plugins.duetEddyAlign.tools.stop") }}
+          </v-btn>
+        </div>
         <v-alert v-if="lastError" type="error" density="compact" class="mb-3" closable @click:close="lastError = ''">
           {{ lastError }}
         </v-alert>
@@ -342,9 +347,20 @@ const scanningAll = ref(false);
 const statusText = ref("");
 const lastError = ref("");
 
+// --- Stop --------------------------------------------------------------------------------------
+// aborting is read (never reset) by whatever's currently running; only the top-level action that
+// *starts* an operation (a single Scan, Scan all, or Check repeatability) resets it. onScanAll's
+// per-tool loop must NOT reset it between tools -- that would make Stop only cancel the tool in
+// progress and silently continue to the next one, defeating the point of a whole-run Stop.
+const aborting = ref(false);
+const isBusy = computed(() => scanningTool.value !== null || scanningAll.value || repeatabilityTool.value !== null);
+function stopOperation(): void { aborting.value = true; }
+
 async function runScan(toolNumber: number | null): Promise<ScanCapture | null> {
 	const readProbe = makeProbeReader(io, cfg.probeIndex);
-	const outcome = await scanTool(io, readProbe, cfg, toolNumber, { status: (m) => { statusText.value = m; } });
+	const outcome = await scanTool(
+		io, readProbe, cfg, toolNumber, { status: (m) => { statusText.value = m; } }, () => aborting.value,
+	);
 	statusText.value = "";
 	if (!outcome.ok || !outcome.capture) {
 		lastError.value = outcome.error ?? "Scan failed";
@@ -353,19 +369,32 @@ async function runScan(toolNumber: number | null): Promise<ScanCapture | null> {
 	return outcome.capture;
 }
 
-async function onScanTool(toolNumber: number): Promise<void> {
-	lastError.value = "";
+/** Shared by onScanTool and onScanAll's loop -- does not touch `aborting`, so it composes correctly
+ *  under a run that's aborting mid-loop (see the note on `aborting` above). */
+async function performScan(toolNumber: number): Promise<void> {
 	scanningTool.value = toolNumber;
 	const capture = await runScan(toolNumber);
 	if (capture) captures[toolNumber] = capture;
 	scanningTool.value = null;
 }
 
+async function onScanTool(toolNumber: number): Promise<void> {
+	lastError.value = "";
+	aborting.value = false;
+	await performScan(toolNumber);
+}
+
 async function onScanAll(): Promise<void> {
+	lastError.value = "";
+	aborting.value = false;
 	scanningAll.value = true;
-	for (const t of tools.value) {
-		await onScanTool(t.number);
+	for (let i = 0; i < tools.value.length; i++) {
+		if (aborting.value) break;
+		const t = tools.value[i];
+		statusText.value = `Scanning T${t.number} (${i + 1} of ${tools.value.length})…`;
+		await performScan(t.number);
 	}
+	statusText.value = "";
 	scanningAll.value = false;
 }
 
@@ -375,11 +404,12 @@ const repeatabilityResult = ref<RepeatabilityResult | null>(null);
 
 async function onCheckRepeatability(toolNumber: number): Promise<void> {
 	lastError.value = "";
+	aborting.value = false;
 	repeatabilityTool.value = toolNumber;
 	const readProbe = makeProbeReader(io, cfg.probeIndex);
 	repeatabilityResult.value = await runRepeatabilityCheck(
 		io, readProbe, cfg, toolNumber, cfg.repeatabilityRuns,
-		{ status: (m) => { statusText.value = m; } },
+		{ status: (m) => { statusText.value = m; } }, () => aborting.value,
 	);
 	statusText.value = "";
 	repeatabilityTool.value = null;
