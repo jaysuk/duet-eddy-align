@@ -13,7 +13,7 @@
  * motion — that was a platform/UX choice, not something the object-model answer forces.
  */
 import { estimateDcBaseline } from "./eddyScan/baseline";
-import { gaussianLogFit } from "./eddyScan/peak1d";
+import { type FitMethod, resolvePeakFit } from "./eddyScan/peak1d";
 import { detectPeakType, isIncompleteSweep } from "./eddyScan/quality";
 
 export interface MachineIO {
@@ -113,39 +113,56 @@ export function makeProbeReader(io: MachineIO, probeIndex = 0): ReadProbe {
 	};
 }
 
+/** runCrossScan's own params, extending SweepParams with fit-selection knobs sweepLine itself has no
+ *  business knowing about — a new type rather than a mutation of SweepParams, so every field here
+ *  stays optional and every existing SweepParams call site keeps compiling unchanged. */
+export interface CrossScanParams extends SweepParams {
+	/** Requested fit method — may be overridden per axis by resolvePeakFit's auto-switch on a
+	 *  detected valley; see CrossScanResult.methodUsed for what was actually used. Default
+	 *  "gaussianLog". */
+	fitMethod?: FitMethod;
+	/** Gaussian weighting bandwidth (mm) for the weightedQuadratic fit, whether requested directly
+	 *  or reached via auto-switch. */
+	weightedQuadraticSigma?: number;
+}
+
 export interface CrossScanResult {
 	ok: boolean;
 	position?: { x: number; y: number };
 	confidence?: number;
+	/** Detected response polarity, shared by both axes (see the X/Y agreement check below). */
+	peakType?: "peak" | "valley";
+	/** The fit actually used. Differs from the requested fitMethod exactly when resolvePeakFit
+	 *  auto-switched on a detected valley — always report this, never assume it matches the request. */
+	methodUsed?: FitMethod;
 	error?: string;
 }
 
 export interface ProgressSink { status?: (message: string) => void; }
 
 /**
- * Cross scan: sweep X then Y through the current position, sub-sample fit each independently
- * (peak1d.ts's gaussianLogFit — the inductive coil's response is expected to be Gaussian-ish, and
- * unlike a raw parabolic fit it's exact for a true Gaussian regardless of how the sample window sits
- * relative to the peak), and combine into an (x, y) center estimate. Cheaper than a full 2D raster
- * (see peak2d.ts) — reserve that for a refinement pass once this is working on real hardware.
+ * Cross scan: sweep X then Y through the current position, sub-sample fit each independently, and
+ * combine into an (x, y) center estimate. Cheaper than a full 2D raster (see peak2d.ts) — reserve
+ * that for a refinement pass once this is working on real hardware.
  *
  * Each axis's response polarity is detected per scan (quality.ts's detectPeakType) rather than
  * assumed — whether sensors.probes[n].value[0] rises or falls with nozzle proximity is unverified on
- * real hardware. A detected valley isn't fittable by gaussianLogFit yet (it needs a positive signal
- * with a maximum); this currently fails with an actionable error rather than a misleading "sweep
- * incomplete" one, since a valley's extremum is an argmin the old peak-only check would flag as
- * sitting at the sweep's edge. TODO(Step 1): auto-switch to a weighted-quadratic fit instead of
- * failing.
+ * real hardware. peak1d.ts's resolvePeakFit() picks the fit and auto-switches gaussianLog ->
+ * weightedQuadratic on a detected valley (gaussianLog can't fit one — it needs a positive signal
+ * with a maximum). X and Y must agree on polarity: they measure the same physical coupling through
+ * the same coil seconds apart, so disagreement means something's wrong (most likely one sweep missed
+ * the coil), not two independently-valid measurements to average past.
  *
  * Only a DC-offset baseline (baseline.ts's estimateDcBaseline) is applied here — subtracting the
  * mean of the outer samples so gaussianLogFit's near-peak minFraction filter actually engages on a
- * raw reading that carries a large constant offset. The background-*shape* correction
+ * raw reading that carries a large constant offset (weightedQuadraticPeak needs no such help — it
+ * absorbs any DC straight into its own constant term). The background-*shape* correction
  * (polyBaselineIRLS/highpassDoG) is still deferred — real background shape is unverified against
  * hardware, so wiring that in now would be guessing at parameters. Add it once a real sweep's
  * background is characterised.
  */
 export async function runCrossScan(
-	io: MachineIO, readProbe: ReadProbe, offsets: number[], params: SweepParams, progress?: ProgressSink,
+	io: MachineIO, readProbe: ReadProbe, offsets: number[], params: CrossScanParams, progress?: ProgressSink,
 ): Promise<CrossScanResult> {
 	try {
 		progress?.status?.("Sweeping X…");
@@ -156,13 +173,6 @@ export async function runCrossScan(
 		if (isIncompleteSweep(xFs, xPeakType)) {
 			return { ok: false, error: "X sweep incomplete — peak sat at the edge of the scan window" };
 		}
-		if (xPeakType === "valley") {
-			return {
-				ok: false,
-				error: "valley-shaped response detected — the gaussianLog fit handles peaks only; switch Fit method to weighted quadratic.",
-			};
-		}
-		const xFit = gaussianLogFit(xSamples.map((p) => p.x), xFs, estimateDcBaseline(xFs));
 
 		progress?.status?.("Sweeping Y…");
 		const ySamples = await sweepLine(io, readProbe, "Y", offsets, params);
@@ -172,18 +182,28 @@ export async function runCrossScan(
 		if (isIncompleteSweep(yFs, yPeakType)) {
 			return { ok: false, error: "Y sweep incomplete — peak sat at the edge of the scan window" };
 		}
-		if (yPeakType === "valley") {
+
+		if (xPeakType !== yPeakType) {
 			return {
 				ok: false,
-				error: "valley-shaped response detected — the gaussianLog fit handles peaks only; switch Fit method to weighted quadratic.",
+				error: "X and Y disagree on response polarity — the scan may not be centred on the coil",
 			};
 		}
-		const yFit = gaussianLogFit(ySamples.map((p) => p.x), yFs, estimateDcBaseline(yFs));
+
+		const fitMethod = params.fitMethod ?? "gaussianLog";
+		const xFit = resolvePeakFit(xSamples.map((p) => p.x), xFs, fitMethod, {
+			peakType: xPeakType, sigma: params.weightedQuadraticSigma, baseline: estimateDcBaseline(xFs),
+		});
+		const yFit = resolvePeakFit(ySamples.map((p) => p.x), yFs, fitMethod, {
+			peakType: yPeakType, sigma: params.weightedQuadraticSigma, baseline: estimateDcBaseline(yFs),
+		});
 
 		return {
 			ok: true,
-			position: { x: xFit.mu, y: yFit.mu },
+			position: { x: xFit.x, y: yFit.x },
 			confidence: Math.min(xFit.rSquared, yFit.rSquared),
+			peakType: xPeakType,
+			methodUsed: xFit.methodUsed,
 		};
 	} catch (err) {
 		return { ok: false, error: err instanceof Error ? err.message : String(err) };

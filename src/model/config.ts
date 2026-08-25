@@ -34,6 +34,20 @@ export interface EddyAlignConfig {
 	scanStep: number;
 
 	/**
+	 * Which sub-sample peak fit to use — see peak1d.ts. "gaussianLog" (default) assumes the whole
+	 * sweep is a clean Gaussian; "weightedQuadratic" only assumes smoothness near the peak, is
+	 * immune to a DC-offset signal, and handles a valley-shaped response natively. A detected valley
+	 * auto-switches to weightedQuadratic regardless of this setting — no separate toggle needed for
+	 * that, since the switch always reports itself (never silent) via the scan result.
+	 */
+	fitMethod: "gaussianLog" | "weightedQuadratic";
+	/** Gaussian weighting bandwidth (mm) for the weightedQuadratic fit. Fixed placeholder default,
+	 *  deliberately not derived from scanHalfWidth (that would couple the scan window's size to the
+	 *  fit's bias/variance tradeoff) — same "pending real hardware calibration" status as
+	 *  quality.ts's sigmaNominal, see docs/open-questions.md. */
+	weightedQuadraticSigma: number;
+
+	/**
 	 * How the 0,0 origin is defined — same two modes as duet-tool-align:
 	 *  - "tool":  a reference tool (e.g. T0), scanned the same as any other tool. Other tools are
 	 *             measured relative to its captured position, and by default the reference tool
@@ -82,6 +96,8 @@ export function defaultConfig(): EddyAlignConfig {
 		settleMs: 300,
 		scanHalfWidth: 3,
 		scanStep: 0.5,
+		fitMethod: "gaussianLog",
+		weightedQuadraticSigma: 1.0,
 		referenceMode: "tool",
 		referenceTool: 0,
 		zeroReferenceOffset: true,

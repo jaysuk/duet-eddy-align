@@ -85,7 +85,16 @@
             <v-text-field v-model.number="cfg.zStep" type="number" density="compact"
               :label="$t('plugins.duetEddyAlign.setup.zStep')" />
           </v-col>
+          <v-col cols="6" sm="4">
+            <v-select v-model="cfg.fitMethod" density="compact" :items="fitMethodItems"
+              :label="$t('plugins.duetEddyAlign.setup.fitMethod')" />
+          </v-col>
+          <v-col v-if="cfg.fitMethod === 'weightedQuadratic'" cols="6" sm="4">
+            <v-text-field v-model.number="cfg.weightedQuadraticSigma" type="number" density="compact"
+              :label="$t('plugins.duetEddyAlign.setup.weightedQuadraticSigma')" />
+          </v-col>
         </v-row>
+        <div class="text-caption text-medium-emphasis mb-2">{{ $t("plugins.duetEddyAlign.setup.fitMethodHint") }}</div>
       </v-card-text>
     </v-window-item>
 
@@ -149,7 +158,12 @@
               <td>{{ row.name }}</td>
               <td>{{ row.curX != null ? `${row.curX.toFixed(2)}, ${row.curY?.toFixed(2)}` : "—" }}</td>
               <td>{{ row.capture ? `${row.capture.x.toFixed(3)}, ${row.capture.y.toFixed(3)}` : "—" }}</td>
-              <td>{{ row.capture ? row.capture.confidence.toFixed(2) : "—" }}</td>
+              <td>
+                {{ row.capture ? row.capture.confidence.toFixed(2) : "—" }}
+                <div v-if="row.capture?.methodUsed && row.capture.methodUsed !== cfg.fitMethod" class="text-caption text-medium-emphasis">
+                  {{ $t("plugins.duetEddyAlign.tools.methodSwitched", { type: row.capture.peakType, method: row.capture.methodUsed }) }}
+                </div>
+              </td>
               <td>{{ row.g10 ?? "—" }}</td>
               <td>
                 <v-btn size="x-small" variant="tonal" :loading="scanningTool === row.number" @click="onScanTool(row.number)">
@@ -213,6 +227,10 @@ const toolOptions = computed(() => tools.value.map((t) => ({ title: t.name, valu
 const referenceModeItems = [
 	{ title: "Reference tool", value: "tool" as const },
 	{ title: "Fixed datum point", value: "point" as const },
+];
+const fitMethodItems = [
+	{ title: "Gaussian log-fit", value: "gaussianLog" as const },
+	{ title: "Weighted quadratic", value: "weightedQuadratic" as const },
 ];
 
 // --- Live reading -----------------------------------------------------------------------------

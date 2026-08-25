@@ -133,18 +133,37 @@ describe("runCrossScan", () => {
 		expect(result.error).toMatch(/X sweep incomplete/);
 	});
 
-	it("[Step 0 interim] rejects a valley-shaped X response with an actionable error, not 'sweep incomplete'", async () => {
+	it("[Step 1] auto-switches to weightedQuadratic on a valley-shaped response, instead of failing", async () => {
 		const { io } = fakeIO({ X: 100, Y: 50 });
 		// A dip, not a bump: center lower than the edges, extremum well inside the window.
 		const valley = (offset: number, mu: number, sigma = 1, depth = 10) =>
 			-depth * Math.exp(-((offset - mu) ** 2) / (2 * sigma * sigma));
-		const xReadings = offsets.map((o) => 100 + valley(o, 0.4));
+		const xTrue = 0.4, yTrue = -0.2;
+		const readings = [
+			...offsets.map((o) => 100 + valley(o, xTrue)),
+			...offsets.map((o) => 100 + valley(o, yTrue)),
+		];
 
-		const result = await runCrossScan(io, queueReader(xReadings), offsets, { jogFeed: 600, settleMs: 0 });
+		const result = await runCrossScan(io, queueReader(readings), offsets, { jogFeed: 600, settleMs: 0 });
+
+		expect(result.ok).toBe(true);
+		expect(result.peakType).toBe("valley");
+		expect(result.methodUsed).toBe("weightedQuadratic");
+		// This is an integration test for the auto-switch mechanism, not the fit's precision (see
+		// peak1d.test.ts for that) — the local-quadratic approximation to a true Gaussian has a small,
+		// expected bias on a ±2 (2-sigma) window with the default weightedQuadraticSigma of 1.0.
+		expect(Math.abs((result.position?.x ?? NaN) - (100 + xTrue))).toBeLessThan(0.1);
+		expect(Math.abs((result.position?.y ?? NaN) - (50 + yTrue))).toBeLessThan(0.1);
+	});
+
+	it("rejects a scan where X and Y disagree on response polarity", async () => {
+		const { io } = fakeIO({ X: 100, Y: 50 });
+		const peakFs = offsets.map((o) => gaussian(o, 0.4)); // X: a peak
+		const valleyFs = offsets.map((o) => -gaussian(o, -0.2)); // Y: a valley
+		const result = await runCrossScan(io, queueReader([...peakFs, ...valleyFs]), offsets, { jogFeed: 600, settleMs: 0 });
 
 		expect(result.ok).toBe(false);
-		expect(result.error).toMatch(/valley-shaped response/);
-		expect(result.error).not.toMatch(/sweep incomplete/);
+		expect(result.error).toMatch(/disagree on response polarity/);
 	});
 
 	it("reports abort without throwing", async () => {

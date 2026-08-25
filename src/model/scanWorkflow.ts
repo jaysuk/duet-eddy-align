@@ -11,6 +11,11 @@ export interface ScanCapture {
 	x: number;
 	y: number;
 	confidence: number;
+	/** Detected response polarity for this capture. */
+	peakType?: "peak" | "valley";
+	/** The fit actually used — differs from cfg.fitMethod exactly when a detected valley
+	 *  auto-switched to weightedQuadratic; always report it, never assume it matches cfg. */
+	methodUsed?: "gaussianLog" | "weightedQuadratic";
 }
 
 export interface ScanOutcome {
@@ -59,11 +64,20 @@ export async function scanTool(
 		await goToProbePosition(io, cfg);
 
 		const offsets = buildScanOffsets(cfg.scanHalfWidth, cfg.scanStep);
-		const result = await runCrossScan(io, readProbe, offsets, { jogFeed: cfg.jogFeed, settleMs: cfg.settleMs }, progress);
+		const result = await runCrossScan(io, readProbe, offsets, {
+			jogFeed: cfg.jogFeed, settleMs: cfg.settleMs,
+			fitMethod: cfg.fitMethod, weightedQuadraticSigma: cfg.weightedQuadraticSigma,
+		}, progress);
 		if (!result.ok || !result.position) {
 			return { ok: false, error: result.error ?? "scan failed" };
 		}
-		return { ok: true, capture: { x: result.position.x, y: result.position.y, confidence: result.confidence ?? 0 } };
+		return {
+			ok: true,
+			capture: {
+				x: result.position.x, y: result.position.y, confidence: result.confidence ?? 0,
+				peakType: result.peakType, methodUsed: result.methodUsed,
+			},
+		};
 	} catch (err) {
 		return { ok: false, error: err instanceof Error ? err.message : String(err) };
 	}

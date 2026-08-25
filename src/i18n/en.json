@@ -30,7 +30,10 @@
 		"scanHalfWidth": "Scan half-width (mm)",
 		"scanStep": "Scan step (mm)",
 		"xyStep": "Manual jog step, X/Y (mm)",
-		"zStep": "Manual jog step, Z (mm)"
+		"zStep": "Manual jog step, Z (mm)",
+		"fitMethod": "Fit method",
+		"weightedQuadraticSigma": "Weighted quadratic sigma (mm)",
+		"fitMethodHint": "Weighted quadratic is immune to a DC-offset signal and handles a valley-shaped response natively. A detected valley auto-switches to it regardless of this setting — the results table shows a note when that happens."
 	},
 	"reference": {
 		"mode": "Reference",
@@ -50,7 +53,8 @@
 		"offset": "New G10",
 		"scan": "Scan",
 		"scanAll": "Scan all tools",
-		"empty": "No tools found in the object model."
+		"empty": "No tools found in the object model.",
+		"methodSwitched": "{type} — fitted with {method}"
 	},
 	"offsets": {
 		"applyAll": "Apply all",

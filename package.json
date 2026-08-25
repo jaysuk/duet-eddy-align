@@ -1,6 +1,6 @@
 {
   "name": "duet-eddy-align",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Automated eddy-current (Scanning Z Probe) tool-offset alignment for RepRapFirmware toolchangers, as a Duet Web Control 3.7 plugin.",
   "private": true,
   "license": "GPL-3.0-or-later",

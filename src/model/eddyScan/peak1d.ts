@@ -126,3 +126,96 @@ export function centroidPeak(xs: number[], fs: number[], threshold: number): num
 	if (den === 0) throw new Error("centroidPeak: no signal above threshold");
 	return num / den;
 }
+
+export interface WeightedQuadraticFit { xPeak: number; a: number; b: number; c: number; rSquared: number; }
+
+/**
+ * Gaussian-weighted quadratic least-squares: fits y = ax²+bx+c with samples weighted by
+ * exp(-(x-x0)²/2σ²) centered on the coarse extremum x0 — a *local* fit that only assumes smoothness
+ * near the peak, unlike gaussianLogFit's assumption that the whole sweep is a clean Gaussian. Two
+ * consequences that make this the more robust of the two fits on real hardware data: it absorbs any
+ * DC offset straight into c (no baseline subtraction needed), and it handles a valley exactly as
+ * easily as a peak — only the curvature assertion flips, unlike gaussianLogFit which needs a
+ * positive signal with a maximum and can't fit a valley without inverting around an estimated
+ * background.
+ *
+ * Solved via solveLinear (general Gauss-Jordan), not a hand-rolled Cramer's-rule determinant — see
+ * docs/open-questions.md's Prior art section for the real bug that shortcut caused in prior art this
+ * was adapted from.
+ *
+ * R² is computed *weighted* (ss_res/ss_tot both weighted by the same Gaussian kernel used for the
+ * fit), not over the full unweighted window — a deliberately local fit will diverge in the tails, so
+ * penalising it with full-window R² would score it down for something it never attempted. This means
+ * its R² is not on the same scale as gaussianLogFit's; treat the two as method-relative, not
+ * cross-comparable.
+ */
+export function weightedQuadraticPeak(
+	xs: number[], fs: number[], sigma: number, peakType: "peak" | "valley" = "peak",
+): WeightedQuadraticFit {
+	let extremumIdx = 0;
+	for (let i = 1; i < fs.length; i++) {
+		if (peakType === "peak" ? fs[i] > fs[extremumIdx] : fs[i] < fs[extremumIdx]) extremumIdx = i;
+	}
+	const x0 = xs[extremumIdx];
+	const weights = xs.map((x) => Math.exp(-((x - x0) ** 2) / (2 * sigma * sigma)));
+
+	let Sw = 0, Swx = 0, Swx2 = 0, Swx3 = 0, Swx4 = 0, Swy = 0, Swxy = 0, Swx2y = 0;
+	for (let i = 0; i < xs.length; i++) {
+		const w = weights[i], x = xs[i], x2 = x * x, y = fs[i];
+		Sw += w; Swx += w * x; Swx2 += w * x2; Swx3 += w * x2 * x; Swx4 += w * x2 * x2;
+		Swy += w * y; Swxy += w * x * y; Swx2y += w * x2 * y;
+	}
+	const A = [[Swx4, Swx3, Swx2], [Swx3, Swx2, Swx], [Swx2, Swx, Sw]];
+	const [a, b, c] = solveLinear(A, [Swx2y, Swxy, Swy]);
+
+	if (peakType === "peak" && a >= 0) throw new Error("weightedQuadraticPeak: not a local maximum");
+	if (peakType === "valley" && a <= 0) throw new Error("weightedQuadraticPeak: not a local minimum");
+
+	const xPeak = -b / (2 * a);
+	const fitted = xs.map((x) => a * x * x + b * x + c);
+	const wMean = Swy / Sw;
+	let ssResW = 0, ssTotW = 0;
+	for (let i = 0; i < xs.length; i++) {
+		ssResW += weights[i] * (fs[i] - fitted[i]) ** 2;
+		ssTotW += weights[i] * (fs[i] - wMean) ** 2;
+	}
+	const rSquared = ssTotW > 0 ? 1 - ssResW / ssTotW : 0;
+
+	return { xPeak, a, b, c, rSquared };
+}
+
+export type FitMethod = "gaussianLog" | "weightedQuadratic";
+
+export interface ResolvedPeak {
+	x: number;
+	rSquared: number;
+	peakType: "peak" | "valley";
+	/** The fit actually used — may differ from the requested method; see the auto-switch note below. */
+	methodUsed: FitMethod;
+}
+
+/**
+ * Single dispatcher normalising gaussianLogFit's `.mu` and weightedQuadraticPeak's `.xPeak` into one
+ * shape. Also owns the one auto-switch in this codebase: gaussianLogFit cannot fit a valley (it needs
+ * a positive signal with a maximum — inverting a valley needs the background estimated first, which
+ * is deferred work), so requesting "gaussianLog" on a detected valley transparently falls back to the
+ * weighted quadratic instead of failing. This is one-directional only — a weightedQuadratic request
+ * never falls back to gaussianLog, since it handles peaks natively. Callers MUST compare
+ * `methodUsed` against what they requested and report a switch happened; a silent auto-switch would
+ * be exactly the kind of misleading-diagnosis bug this function exists to avoid (see
+ * docs/open-questions.md).
+ */
+export function resolvePeakFit(
+	xs: number[], fs: number[], method: FitMethod,
+	opts: { sigma?: number; peakType?: "peak" | "valley"; baseline?: number } = {},
+): ResolvedPeak {
+	const peakType = opts.peakType ?? "peak";
+	const sigma = opts.sigma ?? 1.0;
+
+	if (method === "weightedQuadratic" || peakType === "valley") {
+		const fit = weightedQuadraticPeak(xs, fs, sigma, peakType);
+		return { x: fit.xPeak, rSquared: fit.rSquared, peakType, methodUsed: "weightedQuadratic" };
+	}
+	const fit = gaussianLogFit(xs, fs, opts.baseline ?? 0);
+	return { x: fit.mu, rSquared: fit.rSquared, peakType, methodUsed: "gaussianLog" };
+}
