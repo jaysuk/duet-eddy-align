@@ -39,7 +39,10 @@ export function referenceCapture(
  *    reference tool's current G10 shouldn't be trusted — its own freshly-scanned position becomes
  *    the new baseline instead of whatever it happened to have before.
  */
-export function baseReferenceOffset(cfg: ReferenceConfig, tools: Array<ToolInfo>): ToolOffset {
+export function baseReferenceOffset(
+	cfg: Pick<ReferenceConfig, "referenceMode" | "referenceTool" | "zeroReferenceOffset">,
+	tools: Array<ToolInfo>,
+): ToolOffset {
 	if (cfg.referenceMode === "point" || cfg.zeroReferenceOffset) return { x: 0, y: 0 };
 	const refTool = tools.find((t) => t.number === cfg.referenceTool);
 	return { x: refTool?.curX ?? 0, y: refTool?.curY ?? 0 };
