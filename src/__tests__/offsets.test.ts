@@ -82,4 +82,34 @@ describe("computeOffsetRows", () => {
 		expect(rows[1].g10).toBeNull();
 		expect(rows[1].capture).toBeNull();
 	});
+
+	describe("deltaFromCurrent", () => {
+		it("is the new G10 minus the tool's current G10, per axis", () => {
+			const cfg = defaultConfig();
+			cfg.referenceMode = "tool"; cfg.referenceTool = 0; cfg.zeroReferenceOffset = false;
+			const rows = computeOffsetRows(tools, captures, null, cfg);
+
+			// T1: new G10 (-3.5, 0.6) - current G10 (0, 0) = (-3.5, 0.6)
+			expect(rows[1].deltaFromCurrent).toEqual({ x: -3.5, y: 0.6 });
+			// T0 (the reference itself): new G10 (1.5, -0.4) - current G10 (1.5, -0.4) = (0, 0)
+			expect(rows[0].deltaFromCurrent).toEqual({ x: 0, y: 0 });
+		});
+
+		it("is omitted when the tool has no current G10 to compare against", () => {
+			const noCurrentG10 = [{ number: 0, name: "T0", curX: null, curY: null }, tools[1]];
+			const cfg = defaultConfig();
+			cfg.referenceMode = "tool"; cfg.referenceTool = 0; cfg.zeroReferenceOffset = true;
+			const rows = computeOffsetRows(noCurrentG10, captures, null, cfg);
+
+			expect(rows[0].g10).not.toBeNull(); // an offset was still computed...
+			expect(rows[0].deltaFromCurrent).toBeUndefined(); // ...just nothing to diff it against
+		});
+
+		it("is omitted when the tool hasn't been scanned (no fresh offset to compare)", () => {
+			const cfg = defaultConfig();
+			cfg.referenceMode = "tool"; cfg.referenceTool = 0;
+			const rows = computeOffsetRows(tools, { 0: captures[0] }, null, cfg);
+			expect(rows[1].deltaFromCurrent).toBeUndefined();
+		});
+	});
 });

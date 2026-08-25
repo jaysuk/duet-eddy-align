@@ -58,6 +58,7 @@
 		"captured": "Captured (X, Y)",
 		"confidence": "Confidence",
 		"offset": "New G10",
+		"variation": "Variation",
 		"scan": "Scan",
 		"scanAll": "Scan all tools",
 		"repeatability": "Check repeatability",

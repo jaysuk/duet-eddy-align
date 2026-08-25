@@ -172,6 +172,7 @@
               <th>{{ $t("plugins.duetEddyAlign.tools.captured") }}</th>
               <th>{{ $t("plugins.duetEddyAlign.tools.confidence") }}</th>
               <th>{{ $t("plugins.duetEddyAlign.tools.offset") }}</th>
+              <th>{{ $t("plugins.duetEddyAlign.tools.variation") }}</th>
               <th></th>
             </tr>
           </thead>
@@ -195,6 +196,10 @@
               </td>
               <td>{{ row.g10 ?? "—" }}</td>
               <td>
+                <span v-if="row.deltaFromCurrent">{{ formatSigned(row.deltaFromCurrent.x) }}, {{ formatSigned(row.deltaFromCurrent.y) }}</span>
+                <span v-else>—</span>
+              </td>
+              <td>
                 <v-btn size="x-small" variant="tonal" :loading="scanningTool === row.number" @click="onScanTool(row.number)">
                   {{ $t("plugins.duetEddyAlign.tools.scan") }}
                 </v-btn>
@@ -205,7 +210,7 @@
               </td>
             </tr>
             <tr v-if="!tools.length">
-              <td colspan="6" class="text-caption text-medium-emphasis">{{ $t("plugins.duetEddyAlign.tools.empty") }}</td>
+              <td colspan="7" class="text-caption text-medium-emphasis">{{ $t("plugins.duetEddyAlign.tools.empty") }}</td>
             </tr>
           </tbody>
         </v-table>
@@ -455,6 +460,12 @@ function onClearDatum(): void {
 // --- Offsets ---------------------------------------------------------------------------------
 
 const rows = computed(() => computeOffsetRows(tools.value, captures, datumCapture.value, cfg));
+
+/** Explicit +/− sign so the variation column's direction is unmissable at a glance, not just its
+ *  magnitude -- a real minus sign (not a hyphen) to match the leading plus visually. */
+function formatSigned(v: number, precision = 3): string {
+	return (v < 0 ? "−" : "+") + Math.abs(v).toFixed(precision);
+}
 const anyApplicable = computed(() => rows.value.some((r) => r.g10));
 
 const confirmOpen = ref(false);

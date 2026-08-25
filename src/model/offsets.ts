@@ -16,6 +16,12 @@ export interface OffsetRow {
 	curY: number | null;
 	capture: ScanCapture | null;
 	g10: string | null;
+	/** How much Apply would actually change this tool's offset: new G10 minus its current G10, per
+	 *  axis. Only set when both exist to compare -- a freshly computed offset (capture && ref) *and*
+	 *  a current G10 on the tool already (curX/curY non-null) -- so there's nothing misleading shown
+	 *  for a tool that's never had one set. This is the "will Apply move this a little or a lot"
+	 *  number, not a comparison against the saved probe position. */
+	deltaFromCurrent?: { x: number; y: number };
 }
 
 type ReferenceConfig = Pick<EddyAlignConfig, "referenceMode" | "referenceTool" | "invertOffsets" | "zeroReferenceOffset">;
@@ -61,6 +67,9 @@ export function computeOffsetRows(
 		const offset = capture && ref
 			? computeToolOffset({ x: ref.x, y: ref.y }, { x: capture.x, y: capture.y }, refOffset, cfg.invertOffsets)
 			: null;
+		const deltaFromCurrent = offset && typeof offset.x === "number" && typeof offset.y === "number" && t.curX != null && t.curY != null
+			? { x: offset.x - t.curX, y: offset.y - t.curY }
+			: undefined;
 		return {
 			number: t.number,
 			name: t.name,
@@ -68,6 +77,7 @@ export function computeOffsetRows(
 			curY: t.curY,
 			capture,
 			g10: offset ? formatG10(t.number, offset) : null,
+			deltaFromCurrent,
 		};
 	});
 }
