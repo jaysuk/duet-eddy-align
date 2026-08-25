@@ -12,8 +12,9 @@
  * step-and-sample** (jog to each point, M400, read once) rather than polling during continuous
  * motion — that was a platform/UX choice, not something the object-model answer forces.
  */
+import { estimateDcBaseline } from "./eddyScan/baseline";
 import { gaussianLogFit } from "./eddyScan/peak1d";
-import { isIncompleteSweep } from "./eddyScan/quality";
+import { detectPeakType, isIncompleteSweep } from "./eddyScan/quality";
 
 export interface MachineIO {
 	sendCode(code: string): Promise<unknown>;
@@ -128,9 +129,20 @@ export interface ProgressSink { status?: (message: string) => void; }
  * relative to the peak), and combine into an (x, y) center estimate. Cheaper than a full 2D raster
  * (see peak2d.ts) — reserve that for a refinement pass once this is working on real hardware.
  *
- * No baseline/high-pass correction is applied here yet (see baseline.ts) — real background shape is
- * still unverified against hardware, so wiring it in now would be guessing at parameters. Add it once
- * a real sweep's background is characterised.
+ * Each axis's response polarity is detected per scan (quality.ts's detectPeakType) rather than
+ * assumed — whether sensors.probes[n].value[0] rises or falls with nozzle proximity is unverified on
+ * real hardware. A detected valley isn't fittable by gaussianLogFit yet (it needs a positive signal
+ * with a maximum); this currently fails with an actionable error rather than a misleading "sweep
+ * incomplete" one, since a valley's extremum is an argmin the old peak-only check would flag as
+ * sitting at the sweep's edge. TODO(Step 1): auto-switch to a weighted-quadratic fit instead of
+ * failing.
+ *
+ * Only a DC-offset baseline (baseline.ts's estimateDcBaseline) is applied here — subtracting the
+ * mean of the outer samples so gaussianLogFit's near-peak minFraction filter actually engages on a
+ * raw reading that carries a large constant offset. The background-*shape* correction
+ * (polyBaselineIRLS/highpassDoG) is still deferred — real background shape is unverified against
+ * hardware, so wiring that in now would be guessing at parameters. Add it once a real sweep's
+ * background is characterised.
  */
 export async function runCrossScan(
 	io: MachineIO, readProbe: ReadProbe, offsets: number[], params: SweepParams, progress?: ProgressSink,
@@ -139,18 +151,34 @@ export async function runCrossScan(
 		progress?.status?.("Sweeping X…");
 		const xSamples = await sweepLine(io, readProbe, "X", offsets, params);
 		if (params.shouldAbort?.()) return { ok: false, error: "aborted" };
-		if (isIncompleteSweep(xSamples.map((p) => p.f))) {
+		const xFs = xSamples.map((p) => p.f);
+		const xPeakType = detectPeakType(xFs);
+		if (isIncompleteSweep(xFs, xPeakType)) {
 			return { ok: false, error: "X sweep incomplete — peak sat at the edge of the scan window" };
 		}
-		const xFit = gaussianLogFit(xSamples.map((p) => p.x), xSamples.map((p) => p.f));
+		if (xPeakType === "valley") {
+			return {
+				ok: false,
+				error: "valley-shaped response detected — the gaussianLog fit handles peaks only; switch Fit method to weighted quadratic.",
+			};
+		}
+		const xFit = gaussianLogFit(xSamples.map((p) => p.x), xFs, estimateDcBaseline(xFs));
 
 		progress?.status?.("Sweeping Y…");
 		const ySamples = await sweepLine(io, readProbe, "Y", offsets, params);
 		if (params.shouldAbort?.()) return { ok: false, error: "aborted" };
-		if (isIncompleteSweep(ySamples.map((p) => p.f))) {
+		const yFs = ySamples.map((p) => p.f);
+		const yPeakType = detectPeakType(yFs);
+		if (isIncompleteSweep(yFs, yPeakType)) {
 			return { ok: false, error: "Y sweep incomplete — peak sat at the edge of the scan window" };
 		}
-		const yFit = gaussianLogFit(ySamples.map((p) => p.x), ySamples.map((p) => p.f));
+		if (yPeakType === "valley") {
+			return {
+				ok: false,
+				error: "valley-shaped response detected — the gaussianLog fit handles peaks only; switch Fit method to weighted quadratic.",
+			};
+		}
+		const yFit = gaussianLogFit(ySamples.map((p) => p.x), yFs, estimateDcBaseline(yFs));
 
 		return {
 			ok: true,

@@ -39,6 +39,22 @@ export function polyBaselineIRLS(
 }
 
 /**
+ * Mean of the outermost `edgeCount` samples at each end — a DC-offset estimate only (the
+ * "endpoints-as-anchors" method), not the background-*shape* correction `polyBaselineIRLS`/
+ * `highpassDoG` above provide. A raw eddy reading can carry a large constant offset (e.g. from the
+ * M558.2 R calibration RRF uses for Z-probing) that has nothing to do with the tip response's shape;
+ * subtracting just that DC term is enough to make `gaussianLogFit`'s `minFraction` filter actually
+ * engage. Deliberately not a substitute for the shape correction above, which stays deferred pending
+ * real hardware data on the background's actual shape.
+ */
+export function estimateDcBaseline(fs: number[], edgeCount = 3): number {
+	const n = fs.length;
+	const k = Math.max(1, Math.min(edgeCount, Math.floor(n / 2)));
+	const edge = [...fs.slice(0, k), ...fs.slice(n - k)];
+	return edge.reduce((s, v) => s + v, 0) / edge.length;
+}
+
+/**
  * Difference-of-Gaussians high-pass: subtracts a heavily-smoothed (wide sigma) copy of the sweep
  * from itself. Because the heater-block/wiring background varies slowly relative to a wide-sigma
  * smoothing kernel while the tip response doesn't, most of the background survives entirely into the

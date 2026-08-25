@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { confidenceScore, isIncompleteSweep, robustNoiseStd } from "../model/eddyScan/quality";
+import { confidenceScore, detectPeakType, isIncompleteSweep, robustNoiseStd } from "../model/eddyScan/quality";
 
 describe("robustNoiseStd", () => {
 	it("is resistant to a single large outlier (unlike a plain std dev)", () => {
@@ -17,6 +17,35 @@ describe("isIncompleteSweep", () => {
 
 	it("passes a peak sitting inside the sweep", () => {
 		expect(isIncompleteSweep([1, 5, 9, 5, 1])).toBe(false);
+	});
+
+	it("flags a valley sitting at the edge of the sweep", () => {
+		expect(isIncompleteSweep([1, 5, 9], "valley")).toBe(true);
+	});
+
+	it("passes a valley sitting inside the sweep", () => {
+		expect(isIncompleteSweep([9, 5, 1, 5, 9], "valley")).toBe(false);
+	});
+});
+
+describe("detectPeakType", () => {
+	it("identifies a peak — center higher than the edges", () => {
+		expect(detectPeakType([1, 5, 9, 5, 1])).toBe("peak");
+	});
+
+	it("identifies a valley — center lower than the edges", () => {
+		expect(detectPeakType([9, 5, 1, 5, 9])).toBe("valley");
+	});
+
+	it("throws on a flat (zero-spread) sweep", () => {
+		expect(() => detectPeakType([5, 5, 5, 5, 5])).toThrow(/no contrast/);
+	});
+
+	it("defaults to peak (not a throw) for a monotonic ramp, whose edge/center means tie by symmetry", () => {
+		// A clean linear ramp has equal edge-mean and center-mean by pure arithmetic symmetry, but it
+		// has real (nonzero) spread — an incomplete sweep, not a flat one. isIncompleteSweep catches
+		// it downstream regardless of which polarity this defaults to.
+		expect(detectPeakType([0, 1, 2, 3, 4, 5, 6, 7, 8])).toBe("peak");
 	});
 });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { highpassDoG, polyBaselineIRLS } from "../model/eddyScan/baseline";
+import { estimateDcBaseline, highpassDoG, polyBaselineIRLS } from "../model/eddyScan/baseline";
 
 describe("polyBaselineIRLS", () => {
 	it("recovers a linear baseline while ignoring an injected peak", () => {
@@ -15,6 +15,18 @@ describe("polyBaselineIRLS", () => {
 			if (i === spikeIndex) return;
 			expect(baseline[i]).toBeCloseTo(trueBaseline(x), 1);
 		});
+	});
+});
+
+describe("estimateDcBaseline", () => {
+	it("averages the outermost edgeCount samples at each end", () => {
+		const fs = [100, 101, 99, 200, 500, 400, 98, 102, 100];
+		expect(estimateDcBaseline(fs, 3)).toBeCloseTo((100 + 101 + 99 + 98 + 102 + 100) / 6, 6);
+	});
+
+	it("clamps edgeCount so it never exceeds half the samples", () => {
+		const fs = [10, 20, 30, 40];
+		expect(estimateDcBaseline(fs, 3)).toBeCloseTo((10 + 20 + 30 + 40) / 4, 6);
 	});
 });
 

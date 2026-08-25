@@ -2,7 +2,7 @@
 	"id": "DuetEddyAlign",
 	"name": "Duet Eddy Align",
 	"author": "James Skitt",
-	"version": "0.2.2",
+	"version": "0.3.0",
 	"license": "GPL-3.0-or-later",
 	"homepage": "https://github.com/jaysuk/duet-eddy-align",
 	"dwcVersion": "auto-major",
