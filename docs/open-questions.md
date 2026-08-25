@@ -66,9 +66,58 @@ Duet3D's own published numbers:
   SZP is designed or documented for. `src/model/eddyScan/quality.ts`'s `sigmaNominal` still needs a
   real sweep to calibrate.
 
+## Still open (2026-08-25): response polarity and DC magnitude on real hardware
+
+Whether `sensors.probes[n].value[0]` rises (peak) or falls (valley) as a nozzle approaches the coil
+*laterally* is unverified — RRF's `ZProbe::Stopped()` uses `reading >= threshold`, which hints at
+rising-with-proximity, but that's a Z-probing convention (vertical approach), not proof for XY
+coupling. The plugin works either way now — `quality.ts`'s `detectPeakType()` detects it per scan and
+`peak1d.ts`'s `resolvePeakFit()` auto-switches to the weighted-quadratic fit on a detected valley — but
+the actual answer, once observed on real hardware, is worth recording here: it settles whether
+`gaussianLogFit` (peak-only) or `weightedQuadraticPeak` should be the *default* `fitMethod`, rather than
+the common path silently relying on a fallback.
+
+Same status for the DC magnitude of the raw reading (how large a constant offset `M558.2`'s `R`
+calibration leaves in place) — `baseline.ts`'s `estimateDcBaseline()` handles it either way, but the
+actual number determines how much headroom `gaussianLogFit`'s `minFraction` filter has to work with in
+practice.
+
+Both are things Jay's Setup-tab live reading and manual walk-across (see the bring-up guide) will
+surface directly — nothing left to derive from documentation, just needs a real scan to observe.
+
 ## Prior art
 
-A Klipper `klippy/extras` plugin (github.com/chengxg/tool_eddy_calibration) does the LDC1612-coil
-equivalent of this for Klipper: per-tool coil, multi-direction scan, parabolic sub-sample peak/valley
-fit, paired-direction reconstruction. Same idea, different firmware — RRF just needs the sensor layer
-Klipper builds in Python, since `M558 P11` already does that natively (see above).
+Three Klipper/Kalico plugins do the LDC1612-coil equivalent of this problem. All three were reviewed
+2026-08-25 and informed `src/model/eddyScan/peak1d.ts`'s `weightedQuadraticPeak`/`resolvePeakFit`,
+`orchestrator.ts`'s bidirectional sweep, and `src/model/repeatability.ts`.
+
+- **github.com/chengxg/tool_eddy_calibration** — the original: per-tool coil, multi-direction scan,
+  Gaussian-weighted quadratic sub-sample peak/valley fit, paired-direction reconstruction, repeated
+  measurements with mean ± population-stddev built into the core calibration flow. **Its weighted-
+  quadratic Cramer's-rule determinant formula for the `b` coefficient has a real bug**, independently
+  hand-verified here (not just cited from jaak0b's comments) by expanding both against a textbook
+  cofactor expansion: `det`/`det_a`'s formulas are correct (they use a valid shortcut — expanding
+  along the substituted column and reusing the original matrix's unchanged-column cofactors — verified
+  term-by-term), but `det_b`'s formula doesn't match a correct column-1 expansion, and `det_c` is
+  unverified so treat it as suspect too. **Consequence for this repo: no hand-rolled Cramer's-rule
+  determinant is ported from either Python project below** — `weightedQuadraticPeak` goes through
+  `linalg.ts`'s `solveLinear` (general Gauss-Jordan), the same primitive every other fit in this
+  codebase already uses, specifically to avoid this bug class.
+- **github.com/jaak0b/kalico-eddy-offset-calibration** — a more mature evolution of the above:
+  documents and fixes the `det_b` bug (its own `determinant_3x3`/`replace_column` helpers do a real
+  general expansion), adds `detectPeakType`/multi-angle `average_paired_projections` to cancel
+  direction-dependent bias, `EDDY_REPEATABILITY` (mean ± stddev over N runs), and Z offset via a
+  *separate* fixed contact switch rather than the coil — validates this repo's XY-only scope, same
+  as `duet-tool-align`.
+- **github.com/charliemayall/EddySeek** — a different architecture: iterative coarse-to-fine search
+  (probe a 3×3 grid, move to the weighted centroid, halve the grid spacing, repeat) instead of a fixed
+  scan window + curve fit, plus a continuous-motion `sweep_centroid` strategy correlating samples
+  against Klipper's stepper position history. Not adopted here — RRF doesn't expose an equivalent
+  motion-history API over the object model the way Klipper's internal step-compression does, which is
+  a concrete reason continuous-sweep sampling is harder on RRF than on Klipper, not just a platform
+  preference (see "Decided: platform and sampling strategy" above). `EDDY_SEEK_ACCURACY` is the same
+  repeatability idea as jaak0b's `EDDY_REPEATABILITY`.
+
+RRF just needs the sensor/orchestration layer these plugins build in Python, since `M558 P11` already
+does the sensor/driver layer natively (see "Resolved" above) — no `duet-webcam-bridge`-style external
+bridge needed, unlike the camera-based `duet-tool-align`.

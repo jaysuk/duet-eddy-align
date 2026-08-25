@@ -3,6 +3,11 @@
  * normal-equation solves in peak1d.ts/peak2d.ts/baseline.ts, plus a closed-form 3x3 inverse for the
  * peak-location covariance in peak1d.ts. Nothing here needs to scale past a 6x6 system (the 2D
  * paraboloid fit), so a full sparse/iterative solver would be overkill.
+ *
+ * Every weighted/normal-equation fit in this codebase goes through solveLinear() rather than a
+ * hand-rolled Cramer's-rule determinant shortcut — deliberately, not by omission. See
+ * docs/open-questions.md's Prior art section for the real bug a shortcut formula caused in prior art
+ * peak1d.ts's weightedQuadraticPeak was adapted from.
  */
 
 export type Mat = number[][]; // row-major
