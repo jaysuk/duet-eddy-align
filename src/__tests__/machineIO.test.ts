@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { axisPosition, currentToolNumber, toolList } from "../model/machineIO";
+import { axisPosition, currentToolNumber, toolList, withTimeout } from "../model/machineIO";
 
 describe("axisPosition", () => {
 	it("finds the named axis's machine position", () => {
@@ -44,5 +44,20 @@ describe("currentToolNumber", () => {
 		expect(currentToolNumber({ state: { currentTool: -1 } })).toBeNull();
 		expect(currentToolNumber({})).toBeNull();
 		expect(currentToolNumber(null)).toBeNull();
+	});
+});
+
+describe("withTimeout", () => {
+	it("resolves with the promise's value when it settles before the deadline", async () => {
+		await expect(withTimeout(Promise.resolve("ok"), 50, "test")).resolves.toBe("ok");
+	});
+
+	it("rejects with the promise's own error when it rejects before the deadline", async () => {
+		await expect(withTimeout(Promise.reject(new Error("boom")), 50, "test")).rejects.toThrow("boom");
+	});
+
+	it("rejects naming what timed out when the promise never settles in time", async () => {
+		const hung = new Promise(() => {}); // never resolves or rejects
+		await expect(withTimeout(hung, 10, "sendCode")).rejects.toThrow(/sendCode did not respond within/);
 	});
 });

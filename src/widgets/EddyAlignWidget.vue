@@ -362,7 +362,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, reactive, ref } from "vue";
+import { computed, onUnmounted, ref } from "vue";
 
 import { useMachineStore } from "@/stores/machine";
 
@@ -476,7 +476,12 @@ const prepareToolScanZ = computed<{ value: number | null; isOverride: boolean } 
 
 // --- Scanning ------------------------------------------------------------------------------
 
-const captures = reactive<Record<number, ScanCapture>>({});
+/** Backed directly by cfg.captures (persisted, see config.ts) rather than a session-only reactive()
+ *  -- a disconnect/reconnect, an accidental reload, or Stop-then-hung-scan used to lose every capture
+ *  from the session so far, with no way back except re-scanning. Just an alias: cfg is already a Vue
+ *  reactive proxy, so this nested object stays fully reactive, same as cfg.toolScanZ used directly
+ *  elsewhere in this file. */
+const captures = cfg.captures;
 /** Derived from the persisted cfg.datumPoint (see config.ts) rather than held as its own ref, so a
  *  captured datum survives a reload. Shaped as a ScanCapture (confidence: 1) purely for
  *  computeOffsetRows's sake -- that "confidence" isn't a real fit quality, just a placeholder for a

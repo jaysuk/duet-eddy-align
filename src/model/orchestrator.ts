@@ -17,7 +17,11 @@ import { type FitMethod, type ResolvedPeak, resolvePeakFit } from "./eddyScan/pe
 import { detectPeakType, isIncompleteSweep } from "./eddyScan/quality";
 
 export interface MachineIO {
-	sendCode(code: string): Promise<unknown>;
+	/** `quiet`, when true, asks the implementation not to surface this particular call as a
+	 *  notification/log entry — for the high-frequency, low-meaning traffic a scan generates (see
+	 *  makeProbeReader below), not for anything a user would want a record of. Purely advisory: a
+	 *  MachineIO that doesn't distinguish is free to ignore it. */
+	sendCode(code: string, quiet?: boolean): Promise<unknown>;
 	machinePos(letter: "X" | "Y" | "Z"): number | null;
 }
 
@@ -102,7 +106,10 @@ const INVALID_READING_SENTINEL = 999999;
 
 export function makeProbeReader(io: MachineIO, probeIndex = 0): ReadProbe {
 	return async () => {
-		const reply = await io.sendCode(`M409 K"sensors.probes[${probeIndex}].value[0]"`);
+		// quiet: true -- this fires once per sample point (dozens of times per scan, more with
+		// bidirectional/refinement), and its JSON reply is never empty, so unlike a jog it would
+		// otherwise pop a notification and a Console log line on every single sample.
+		const reply = await io.sendCode(`M409 K"sensors.probes[${probeIndex}].value[0]"`, true);
 		try {
 			const parsed = JSON.parse(String(reply)) as { result?: unknown };
 			const value = parsed.result;

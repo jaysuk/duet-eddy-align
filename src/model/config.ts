@@ -8,6 +8,7 @@ import { reactive } from "vue";
 import { useSettingsStore } from "@/stores/settings";
 
 import { PLUGIN_ID } from "./constants";
+import type { ScanCapture } from "./scanWorkflow";
 
 export interface EddyAlignConfig {
 	/** M558 K parameter — which configured probe is the scanning probe. */
@@ -117,6 +118,15 @@ export interface EddyAlignConfig {
 	 */
 	toolScanZ: Record<string, number>;
 
+	/**
+	 * Per-tool scan results, persisted the same way as datumPoint -- session-only storage meant a
+	 * disconnect/reconnect (or any accidental reload) during a session lost every capture so far,
+	 * with no way back except re-scanning everything. Keyed by tool number, same convention as
+	 * toolScanZ. Survives reload, reconnect, and (since this is stored on the board, not in the
+	 * browser) even closing the tab entirely.
+	 */
+	captures: Record<number, ScanCapture>;
+
 	/** Manual jog steps for the Setup panel. */
 	xyStep: number;
 	zStep: number;
@@ -158,6 +168,7 @@ export function defaultConfig(): EddyAlignConfig {
 		invertOffsets: false,
 		datumPoint: null,
 		toolScanZ: {},
+		captures: {},
 		xyStep: 0.5,
 		zStep: 0.1,
 		livePollMs: 300,
