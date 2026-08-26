@@ -14,7 +14,7 @@
  */
 import { estimateDcBaseline } from "./eddyScan/baseline";
 import { type FitMethod, type ResolvedPeak, resolvePeakFit } from "./eddyScan/peak1d";
-import { detectPeakType, isIncompleteSweep } from "./eddyScan/quality";
+import { detectPeakType, estimateSnr, fitConfidence, isIncompleteSweep } from "./eddyScan/quality";
 
 export interface MachineIO {
 	/** `quiet`, when true, asks the implementation not to surface this particular call as a
@@ -167,6 +167,9 @@ interface AxisScanResult {
 	ok: true;
 	peakType: "peak" | "valley";
 	fit: ResolvedPeak;
+	/** quality.ts's fitConfidence(fit.rSquared, SNR) for this one axis/direction pass — combined
+	 *  (worst-of) across axes/directions in runCrossScan, same way rSquared alone used to be. */
+	confidence: number;
 }
 interface AxisScanFailure { ok: false; error: string; }
 
@@ -192,7 +195,8 @@ async function sweepAndFit(
 	const fit = resolvePeakFit(samples.map((p) => p.x), fs, fitMethod, {
 		peakType, sigma: params.weightedQuadraticSigma, baseline: estimateDcBaseline(fs),
 	});
-	return { ok: true, peakType, fit };
+	const confidence = fitConfidence(fit.rSquared, estimateSnr(fs, peakType));
+	return { ok: true, peakType, fit, confidence };
 }
 
 /**
@@ -216,6 +220,11 @@ async function sweepAndFit(
  * (polyBaselineIRLS/highpassDoG) is still deferred — real background shape is unverified against
  * hardware, so wiring that in now would be guessing at parameters. Add it once a real sweep's
  * background is characterised.
+ *
+ * Reported `confidence` is quality.ts's fitConfidence (R² blended with SNR estimated from the raw
+ * samples), not plain R² — the worst axis/direction's fitConfidence, same "most conservative wins"
+ * rule R² alone used to follow. See fitConfidence's own doc comment for why it isn't
+ * confidenceScore() with placeholder inputs.
  */
 export async function runCrossScan(
 	io: MachineIO, readProbe: ReadProbe, offsets: number[], params: CrossScanParams, progress?: ProgressSink,
@@ -268,7 +277,7 @@ export async function runCrossScan(
 			return {
 				ok: true,
 				position: { x: (xFwd.fit.x + xRev.fit.x) / 2, y: (yFwd.fit.x + yRev.fit.x) / 2 },
-				confidence: Math.min(xFwd.fit.rSquared, xRev.fit.rSquared, yFwd.fit.rSquared, yRev.fit.rSquared),
+				confidence: Math.min(xFwd.confidence, xRev.confidence, yFwd.confidence, yRev.confidence),
 				peakType: xFwd.peakType,
 				methodUsed: xFwd.fit.methodUsed,
 				directionalSpread: {
@@ -281,7 +290,7 @@ export async function runCrossScan(
 		return {
 			ok: true,
 			position: { x: xFwd.fit.x, y: yFwd.fit.x },
-			confidence: Math.min(xFwd.fit.rSquared, yFwd.fit.rSquared),
+			confidence: Math.min(xFwd.confidence, yFwd.confidence),
 			peakType: xFwd.peakType,
 			methodUsed: xFwd.fit.methodUsed,
 		};

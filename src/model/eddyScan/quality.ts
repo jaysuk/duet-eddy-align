@@ -78,3 +78,37 @@ export function confidenceScore(o: {
 	const agreeScore = clamp01(1 - o.agreementSpread / o.expectedWidth);
 	return rScore * 0.35 + snrScore * 0.25 + shapeScore * 0.2 + agreeScore * 0.2;
 }
+
+/** Rough SNR from raw sweep samples alone — no fit residuals needed. The edge samples should be flat
+ *  background (same edge/center split detectPeakType() uses), so their own spread is a reasonable
+ *  noise proxy, and the peak/valley's height above that background is the signal. */
+export function estimateSnr(fs: number[], peakType: "peak" | "valley", edgeFraction = 0.25): number {
+	const n = fs.length;
+	const edgeCount = Math.max(1, Math.round(n * edgeFraction));
+	const edge = [...fs.slice(0, edgeCount), ...fs.slice(n - edgeCount)];
+	const edgeMean = edge.reduce((s, v) => s + v, 0) / edge.length;
+	const noise = robustNoiseStd(edge.map((v) => v - edgeMean));
+	const extremum = peakType === "peak" ? Math.max(...fs) : Math.min(...fs);
+	const signal = Math.abs(extremum - edgeMean);
+	return noise > 0 ? signal / noise : Infinity;
+}
+
+/**
+ * The confidence actually wired into runCrossScan — a narrower relative of confidenceScore() above,
+ * not that function with placeholder inputs. confidenceScore's shapeScore term needs sigmaNominal,
+ * which nothing in this codebase has calibrated against real hardware yet (same
+ * "pending real hardware" status as config.ts's weightedQuadraticSigma — see
+ * docs/open-questions.md); its agreeScore term only means anything for a bidirectional scan's
+ * forward/reverse pair. Faking either with a neutral placeholder to reuse confidenceScore() would
+ * silently make 20-40% of the reported number always "perfect" regardless of the real scan — worse
+ * than not having the term, since it looks like a real measurement. This blends only what's honestly
+ * computable from any scan today: R² (does the fit describe the data) and SNR (is there enough
+ * signal above the background to trust that fit in the first place) — R² alone can't distinguish a
+ * clean fit to a strong signal from an equally clean fit to a nearly-flat sweep, and the latter is
+ * exactly the case worth flagging.
+ */
+export function fitConfidence(rSquared: number, snr: number): number {
+	const rScore = clamp01(rSquared);
+	const snrScore = clamp01((snr - 2) / 8); // same SNR thresholds as confidenceScore, for consistency
+	return rScore * 0.6 + snrScore * 0.4;
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { confidenceScore, detectPeakType, isIncompleteSweep, robustNoiseStd } from "../model/eddyScan/quality";
+import { confidenceScore, detectPeakType, estimateSnr, fitConfidence, isIncompleteSweep, robustNoiseStd } from "../model/eddyScan/quality";
 
 describe("robustNoiseStd", () => {
 	it("is resistant to a single large outlier (unlike a plain std dev)", () => {
@@ -73,5 +73,45 @@ describe("confidenceScore", () => {
 		});
 		expect(score).toBeGreaterThanOrEqual(0);
 		expect(score).toBeLessThanOrEqual(1);
+	});
+});
+
+describe("estimateSnr", () => {
+	it("is high for a strong peak well above flat edges", () => {
+		expect(estimateSnr([0, 0, 10, 0, 0], "peak")).toBeGreaterThan(10);
+	});
+
+	it("is much lower for a peak that barely rises above noisy edges than for a strong, clean one", () => {
+		const strong = estimateSnr([0, 0, 10, 0, 0], "peak");
+		// Edge samples (first/last 2 of 9) vary by a few tenths; the "peak" barely rises above them.
+		const weak = estimateSnr([0, 0.3, 0.5, 0.6, 0.7, 0.6, -0.2, 0.1, 0], "peak");
+		expect(weak).toBeLessThan(strong / 5);
+	});
+
+	it("handles a valley the same way, mirrored", () => {
+		expect(estimateSnr([10, 10, 0, 10, 10], "valley")).toBeGreaterThan(10);
+	});
+
+	it("returns Infinity rather than NaN when the edges have zero spread", () => {
+		expect(estimateSnr([5, 5, 9, 5, 5], "peak")).toBe(Infinity);
+	});
+});
+
+describe("fitConfidence", () => {
+	it("scores a clean fit with a strong signal near 1", () => {
+		expect(fitConfidence(0.98, 15)).toBeGreaterThan(0.9);
+	});
+
+	it("scores a clean fit with a weak signal noticeably lower than R² alone would suggest", () => {
+		// This is the case plain R² can't distinguish from a genuinely trustworthy scan: a smooth
+		// curve fits some noise just as well as it fits a real, weak signal.
+		const weakSignalScore = fitConfidence(0.95, 1.5);
+		expect(weakSignalScore).toBeLessThan(0.95);
+		expect(weakSignalScore).toBeGreaterThan(0.5); // R² still carries most of the weight
+	});
+
+	it("always returns a value in [0, 1]", () => {
+		expect(fitConfidence(-5, -10)).toBeGreaterThanOrEqual(0);
+		expect(fitConfidence(5, 1000)).toBeLessThanOrEqual(1);
 	});
 });

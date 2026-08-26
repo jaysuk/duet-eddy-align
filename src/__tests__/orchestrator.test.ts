@@ -117,10 +117,16 @@ describe("runCrossScan", () => {
 		// sigma (as the bring-up guide recommends sizing in practice) would not show this.
 		expect(result.position?.x).toBeCloseTo(100 + xTrue, 1);
 		expect(result.position?.y).toBeCloseTo(50 + yTrue, 1);
-		// Same root cause: R² is computed against the DC-corrected data (Step 0b), and on this
-		// narrow window the correction is an imperfect (though correctly-behaving) approximation, so
-		// R² is real but no longer ~1. Still comfortably high enough to signal a clean fit.
-		expect(result.confidence).toBeGreaterThan(0.75);
+		// Related root cause, now affecting confidence more directly: fitConfidence blends R² with
+		// estimateSnr(), which assumes the sweep's edge samples are flat background -- true for a
+		// properly-sized real scan window ("a bit wider than the bump," per the bring-up guide), but
+		// this ±2 (2-sigma) synthetic window's edges still sit well up the Gaussian's tail and vary
+		// substantially between themselves, which estimateSnr has no way to distinguish from real
+		// noise. That inflates its noise estimate and depresses the reported SNR/confidence well
+		// below what R² alone would suggest -- a real, expected artifact of this test's deliberately
+		// narrow window, not a regression. (R² itself is also not ~1 here, same Step 0b DC-correction
+		// approximation as above.)
+		expect(result.confidence).toBeGreaterThan(0.45);
 	});
 
 	it("rejects a scan whose peak sits at the edge (incomplete sweep)", async () => {

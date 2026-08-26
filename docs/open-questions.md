@@ -73,6 +73,13 @@ Duet3D's own published numbers:
   `refineMaxPasses` instead), looser and it stops before actually improving on the coarse scan. The
   repeatability check (`repeatability.ts`) is exactly the tool to measure that spread with once real
   hardware numbers exist.
+- **`confidenceScore()`'s full 4-term version is still unwired, on purpose, for the same
+  `sigmaNominal` reason** — its `shapeScore` term compares the fitted width against a nominal one
+  that doesn't exist yet, and its `agreeScore` term only means anything for a bidirectional scan.
+  `runCrossScan` uses a separate, narrower `fitConfidence(rSquared, snr)` instead (R² blended with an
+  SNR estimated straight from the raw sweep, `quality.ts`'s `estimateSnr`) — the two things honestly
+  computable from any scan today. Revisit once `sigmaNominal` has a real value: `agreeScore` could
+  also be folded back in for bidirectional scans using the existing `directionalSpread` diagnostic.
 
 ## Still open (2026-08-25): response polarity and DC magnitude on real hardware
 

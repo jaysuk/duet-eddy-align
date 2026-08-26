@@ -33,7 +33,9 @@ tested, `makeProbeReader()` is verified directly against RepRapFirmware source, 
   set (or clear) that tool's own scan height (`cfg.toolScanZ`), independent of the global default,
   with a readout of which one will actually be used; a current-tool indicator that also highlights the
   loaded tool's row; per-tool or scan-all, an on-demand repeatability check per tool (mean ± sample
-  stddev over N runs), a results table (captured position, confidence, computed `G10`, and a
+  stddev over N runs), a results table (captured position, confidence — `quality.ts`'s
+  `fitConfidence`, blending R² with an SNR estimate from the raw sweep so a technically-smooth fit to
+  a weak signal reads lower than R² alone would suggest, not raw R² by itself — computed `G10`, and a
   **Variation** column showing how much Apply would actually change each tool's offset — new G10 minus
   current G10, per axis), per-row and clear-all capture clearing, and Apply/Save with the same
   show-the-exact-command confirm dialog `duet-tool-align` uses. `computeToolOffset`/`formatG10`
