@@ -31,11 +31,11 @@ import { useMachineStore } from "@/stores/machine";
 
 import { AboutDialog } from "dwc-plugin-runtime";
 
-import EddyAlignWidget from "./widgets/EddyAlignWidget.vue";
+import EddyAlignWidget from "./EddyAlignWidget.vue";
 import {
 	applying, applyUpdateNow, pendingReload, runUpdateCheck,
 	setUpdateChecksEnabled, updateChecksEnabled, updateState,
-} from "./model/updateCheck";
+} from "../updateCheck";
 
 const machineStore = useMachineStore();
 const aboutOpen = ref(false);

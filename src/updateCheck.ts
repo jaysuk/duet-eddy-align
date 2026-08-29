@@ -8,20 +8,28 @@
  * unified popup rather than nagging separately. When no host is active we fall back to our own
  * one-shot notification, and the widget always shows an in-context banner with a one-click apply.
  *
- * The heavy lifting (GitHub fetch, version compare, ZIP download + install) lives in the runtime; this
- * is the thin wiring: throttling, opt-out, hub sync, and supplying DWC's installer. Ported from
- * duet-tool-align's updateCheck.ts, including its already-learned assetPattern fix below — no need to
- * rediscover that bug here.
+ * Lives here, not in `model/` — that directory's whole point is "zero DWC/Vue coupling, ever," and
+ * this file (even though host-injected, not store-coupled) is fundamentally about talking to DWC.
+ * Shared by both DWC generations (see `./core/host.ts`) — reaches DWC only through the injected
+ * `HostAdapter`, never through a store directly. That's what lets this same file compile and run
+ * against both the Pinia (3.7) and Vuex (3.6) builds. Ported from duet-tool-align's updateCheck.ts,
+ * including its already-learned assetPattern fix — each host supplies its own `assetPattern` (see
+ * `core/assetPatterns.ts`), so no need to rediscover that bug here.
  */
+// Deep subpaths, not the package barrel: the barrel also re-exports AboutDialog (a Vue 3 render
+// function using resolveComponent, absent in Vue 2.7) — pulling it into this shared module would
+// break a DWC 3.6 build. These specific modules import no Vue at all.
+import { applyUpdate, checkForUpdate, type UpdateResult } from "dwc-plugin-runtime/updates";
+import { announceUpdate, clearAnnouncedUpdate, isUpdateHostActive } from "dwc-plugin-runtime/updateHub";
 import { ref } from "vue";
 
-import { announceUpdate, applyUpdate, checkForUpdate, clearAnnouncedUpdate, isUpdateHostActive, type UpdateResult } from "dwc-plugin-runtime";
+import type { HostAdapter } from "./core/host";
+import { PLUGIN_MANIFEST_ID } from "./model/constants";
 
-import i18n from "@/i18n";
-import { useMachineStore } from "@/stores/machine";
-import { LogLevel, useUiStore } from "@/stores/ui";
-
-import { PLUGIN_MANIFEST_ID } from "./constants";
+/** Set once at plugin load by whichever entry point is running (ui37/index.ts or ui36/index.ts). This
+ *  module runs before any component mounts, so it cannot reach a store directly — see ./core/host. */
+let host: HostAdapter | null = null;
+export function setUpdateHost(h: HostAdapter): void { host = h; }
 
 const OWNER = "jaysuk";
 const REPO = "duet-eddy-align";
@@ -37,8 +45,8 @@ export const applying = ref(false);
 export const pendingReload = ref(false);
 export const dismissedVersion = ref<string | null>(safeGet(LS_DISMISSED));
 
-const t = (key: string, named?: Record<string, unknown>) =>
-	i18n.global.t(`plugins.duetEddyAlign.updates.${key}`, named ?? {});
+const t = (key: string, named?: Record<string, unknown>) => host?.t(`updates.${key}`, named) ?? "";
+const pluginTitle = () => host?.t("title") ?? "Duet Eddy Align";
 
 function safeGet(key: string): string | null {
 	try { return localStorage.getItem(key); } catch { return null; }
@@ -49,7 +57,7 @@ function safeSet(key: string, value: string): void {
 
 /** Installed plugin version, from the object model's plugins map (authoritative). */
 function currentVersion(): string {
-	const plugins = (useMachineStore().model as { plugins?: Map<string, { version?: string }> }).plugins;
+	const plugins = (host?.model() as { plugins?: Map<string, { version?: string }> } | undefined)?.plugins;
 	return plugins?.get(PLUGIN_MANIFEST_ID)?.version ?? "0.0.0";
 }
 
@@ -65,7 +73,7 @@ export function setUpdateChecksEnabled(on: boolean): void {
 function syncHub(): void {
 	const s = updateState.value;
 	if (s?.updateAvailable && dismissedVersion.value !== s.latestVersion) {
-		announceUpdate(PLUGIN_MANIFEST_ID, i18n.global.t("plugins.duetEddyAlign.title"), s);
+		announceUpdate(PLUGIN_MANIFEST_ID, pluginTitle(), s);
 	} else {
 		clearAnnouncedUpdate(PLUGIN_MANIFEST_ID);
 	}
@@ -88,12 +96,7 @@ export async function runUpdateCheck(opts: { force?: boolean; notify?: boolean }
 	try {
 		const result = await checkForUpdate({
 			owner: OWNER, repo: REPO, currentVersion: currentVersion(),
-			// Releases carry two ZIPs (the installable plugin + a debug source-map bundle); the
-			// runtime's default pattern (any *.zip) matches both and would just take whichever GitHub
-			// lists first -- duet-tool-align hit this for real (silently installing the srcmap ZIP
-			// instead of the plugin). Anchored so it only matches "DuetEddyAlign-<version>.zip", never
-			// the "-srcmap" one.
-			assetPattern: /^DuetEddyAlign-[\d.]+\.zip$/i,
+			...(host?.assetPattern ? { assetPattern: host.assetPattern } : {}),
 		});
 		updateState.value = result;
 		safeSet(LS_LAST, String(Date.now()));
@@ -101,7 +104,7 @@ export async function runUpdateCheck(opts: { force?: boolean; notify?: boolean }
 			const message = result.scenario === "dwcUpdate"
 				? t("notifyDwc", { version: result.latestVersion, dwc: result.requiredDwc })
 				: t("notifyPlugin", { version: result.latestVersion });
-			useUiStore().makeNotification(LogLevel.info, t("title"), message);
+			host?.notify("info", t("title"), message);
 		}
 		syncHub();
 		return result;
@@ -123,10 +126,8 @@ export function dismissCurrentUpdate(): void {
 /** Download the release ZIP and install it via DWC (hot-reloads the bundle). Falls back to a link. */
 export async function applyUpdateNow(): Promise<void> {
 	const result = updateState.value;
-	const machine = useMachineStore();
-	const ui = useUiStore();
-	if (!result?.assetUrl || !result.assetName) {
-		ui.makeNotification(LogLevel.warning, t("title"), t("applyFailed"));
+	if (!result?.assetUrl || !result.assetName || !host) {
+		host?.notify("warning", t("title"), t("applyFailed"));
 		return;
 	}
 	applying.value = true;
@@ -134,18 +135,14 @@ export async function applyUpdateNow(): Promise<void> {
 		await applyUpdate({
 			assetUrl: result.assetUrl,
 			assetName: result.assetName,
-			installPlugin: async (filename, blob, start) => {
-				await (machine as unknown as {
-					installPlugin: (f: string, b: Blob, s: boolean) => Promise<unknown>;
-				}).installPlugin(filename, blob, start);
-			},
+			installPlugin: (filename, blob, start) => host!.installPlugin(filename, blob, start),
 		});
 		pendingReload.value = true;
 		clearAnnouncedUpdate(PLUGIN_MANIFEST_ID);
-		ui.makeNotification(LogLevel.success, t("title"), t("installedReload", { version: result.latestVersion }));
+		host.notify("success", t("title"), t("installedReload", { version: result.latestVersion }));
 	} catch (e) {
 		console.warn("[DuetEddyAlign] update failed:", e);
-		ui.makeNotification(LogLevel.warning, t("title"), t("corsBlocked"));
+		host.notify("warning", t("title"), t("corsBlocked"));
 		window.location.href = result.assetUrl; // manual download fallback
 	} finally {
 		applying.value = false;

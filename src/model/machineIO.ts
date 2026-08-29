@@ -1,13 +1,10 @@
 /**
- * Bridges orchestrator.ts's plain MachineIO seam to DWC's real machine store. Kept separate from the
- * pure model/ layer (this file imports "@/stores/machine", so it can't be unit tested without the
- * dwc-plugin-test-kit stub) — the pure helpers below (axisPosition, toolList) are extracted so the
- * object-model reading logic itself stays testable without a live store.
+ * The pure, framework-agnostic object-model helpers `core/host.ts`'s per-generation implementations
+ * (`ui37/host.ts`, `ui36/host.ts`) build their `MachineIO.machinePos`/`HostAdapter.model()`-reading
+ * logic on top of. No store import here at all — that's the whole point: this file stays testable
+ * without dwc-plugin-test-kit and compiles identically against either DWC generation.
  */
-import { useMachineStore } from "@/stores/machine";
-
 import { resolveOmPath } from "../util/omPath";
-import type { MachineIO } from "./orchestrator";
 
 interface RawAxis { letter?: string; machinePosition?: number | null }
 interface RawTool { number?: number; name?: string; offsets?: Array<number> }
@@ -73,12 +70,4 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): 
 			(e) => { clearTimeout(timer); reject(e); },
 		);
 	});
-}
-
-export function useEddyMachineIO(): MachineIO {
-	const machine = useMachineStore();
-	return {
-		sendCode: (code, quiet) => withTimeout(machine.sendCode(code, false, !quiet), SEND_CODE_TIMEOUT_MS, "sendCode"),
-		machinePos: (letter) => axisPosition(machine.model, letter),
-	};
 }

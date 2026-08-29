@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { mountInDwc, resetDwc } from "dwc-plugin-test-kit";
 
-import EddyAlignPage from "../src/EddyAlignPage.vue";
+import EddyAlignPage from "../src/ui37/EddyAlignPage.vue";
 
 describe("EddyAlignPage", () => {
 	beforeEach(() => resetDwc());
