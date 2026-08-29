@@ -1,6 +1,6 @@
 {
   "name": "duet-eddy-align",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "Automated eddy-current (Scanning Z Probe) tool-offset alignment for RepRapFirmware toolchangers, as a Duet Web Control 3.7 plugin.",
   "private": true,
   "license": "GPL-3.0-or-later",
@@ -19,8 +19,8 @@
     "@vitejs/plugin-vue": "^5.2.4",
     "@vitest/coverage-v8": "^4.1.8",
     "@vue/test-utils": "^2.4.6",
-    "dwc-plugin-test-kit": "^0.2.6",
-    "happy-dom": "^15.11.7",
+    "dwc-plugin-test-kit": "^0.2.8",
+    "happy-dom": "^20.11.15",
     "vitest": "^4.1.8",
     "vue": "^3.5.30",
     "vuetify": "^4.1.0"

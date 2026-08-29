@@ -1,8 +1,20 @@
 {
 	"title": "Eddy Align",
 	"menuCaption": "Eddy Align",
-	"status": {
-		"repoLink": "View source on GitHub"
+	"updates": {
+		"title": "Eddy Align update",
+		"available": "Update available: v{version}",
+		"notifyPlugin": "Eddy Align v{version} is available. Open Plugins → Eddy Align to update.",
+		"notifyDwc": "Eddy Align v{version} needs DuetWebControl {dwc} — update DWC first.",
+		"updateNow": "Update now",
+		"dismiss": "Dismiss",
+		"notes": "Release notes",
+		"needsDwc": "Needs DuetWebControl {dwc} (you have {running})",
+		"applyFailed": "No downloadable asset found for this release.",
+		"corsBlocked": "Couldn't fetch the update automatically — opening the download instead.",
+		"installedReload": "v{version} installed. Reload DWC to finish.",
+		"reloadPrompt": "Update installed — reload DWC to finish.",
+		"reload": "Reload"
 	},
 	"tabs": {
 		"setup": "Setup",

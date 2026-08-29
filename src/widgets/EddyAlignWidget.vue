@@ -1,4 +1,25 @@
 <template>
+  <!-- Update notice (also surfaced in Flexible Layouts' unified popup via the shared hub) -->
+  <v-alert v-if="pendingReload" type="success" density="compact" variant="tonal" class="ma-1">
+    {{ $t("plugins.duetEddyAlign.updates.reloadPrompt") }}
+    <template #append>
+      <v-btn size="small" variant="tonal" @click="reloadPage">{{ $t("plugins.duetEddyAlign.updates.reload") }}</v-btn>
+    </template>
+  </v-alert>
+  <v-alert v-else-if="updateBannerVisible" type="info" density="compact" variant="tonal" class="ma-1">
+    {{ $t("plugins.duetEddyAlign.updates.available", { version: updateState!.latestVersion }) }}
+    <template #append>
+      <div class="d-flex align-center ga-1 flex-wrap">
+        <v-btn v-if="updateState!.scenario === 'pluginUpdate'" size="small" color="primary" variant="flat" :loading="applying" @click="applyUpdateNow">
+          {{ $t("plugins.duetEddyAlign.updates.updateNow") }}
+        </v-btn>
+        <span v-else class="text-caption">{{ $t("plugins.duetEddyAlign.updates.needsDwc", { dwc: updateState!.requiredDwc, running: updateState!.runningDwc }) }}</span>
+        <v-btn size="small" variant="text" :href="updateState!.releaseUrl || undefined" target="_blank" rel="noopener">{{ $t("plugins.duetEddyAlign.updates.notes") }}</v-btn>
+        <v-btn size="small" variant="text" @click="dismissCurrentUpdate">{{ $t("plugins.duetEddyAlign.updates.dismiss") }}</v-btn>
+      </div>
+    </template>
+  </v-alert>
+
   <v-tabs v-model="tab" density="compact">
     <v-tab value="setup">{{ $t("plugins.duetEddyAlign.tabs.setup") }}</v-tab>
     <v-tab value="scan">{{ $t("plugins.duetEddyAlign.tabs.scan") }}</v-tab>
@@ -373,6 +394,7 @@ import { computeOffsetRows } from "../model/offsets";
 import { jogAxisCode, makeProbeReader } from "../model/orchestrator";
 import { type RepeatabilityResult, runRepeatabilityCheck } from "../model/repeatability";
 import { goToProbePosition, scanTool, type ScanCapture } from "../model/scanWorkflow";
+import { applying, applyUpdateNow, dismissCurrentUpdate, dismissedVersion, pendingReload, updateState } from "../model/updateCheck";
 
 const machineStore = useMachineStore();
 const cfg = useConfig();
@@ -629,6 +651,15 @@ async function onApplyAll(): Promise<void> {
 async function onSave(): Promise<void> {
 	if (!cfg.saveCommand) return;
 	if (await confirmApply([cfg.saveCommand])) await io.sendCode(cfg.saveCommand);
+}
+
+// --- Update notification (announced into the shared hub; banner is the in-context surface) ---
+// Whether checks happen at all is toggled from the About dialog (the ⓘ button) or Flexible Layouts'
+// unified update hub when embedded there -- not duplicated here.
+const updateBannerVisible = computed(() =>
+	!!updateState.value?.updateAvailable && updateState.value.latestVersion !== dismissedVersion.value);
+function reloadPage(): void {
+	window.location.reload();
 }
 </script>
 
