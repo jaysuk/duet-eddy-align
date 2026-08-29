@@ -92,6 +92,20 @@ DWC_DIR=/path/to/DuetWebControl npm run typecheck
 DWC_DIR=/path/to/DuetWebControl npm run verify-build
 ```
 
+## Releasing
+
+Automated end-to-end, adapted from duet-tool-align's release pipeline:
+
+```bash
+npm run release -- 0.16.0 --push   # bumps plugin.json + package.json, commits, tags, pushes
+```
+
+The pushed tag triggers `.github/workflows/release.yml`, which builds the ZIP against DWC and
+publishes a GitHub Release with the ZIP attached, a generated title (a pun from
+`scripts/release-titles.txt`), and Conventional-Commit release notes (the shared generator in
+`dwc-plugin-runtime`) plus an install-instructions footer (`scripts/release-footer.mjs`). That footer
+also carries the machine-readable marker `src/model/updateCheck.ts`'s in-app update checker reads.
+
 ## License
 
 GPL-3.0-or-later

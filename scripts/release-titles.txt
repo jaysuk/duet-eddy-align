@@ -1,0 +1,23 @@
+# GitHub Release titles for duet-eddy-align, one per line (blank lines and # comments ignored).
+# Picked by version index (semver-sorted), wrapping if it runs out. Eddy-current / magnetic-sensing
+# puns — top up the list as it gets low (the release workflow warns when few unused titles remain).
+Field Trip
+Current Affairs
+Attractive Offer
+Coil Position
+Eddy, Set, Go
+Induction Complete
+Sensing a Pattern
+Pulled In
+No Contact Necessary
+Peak Performance
+Gauss and Check
+Flux Capacitor Not Included
+Zeroed In
+Signal Boost
+Coiled and Ready
+Reading the Field
+Magnetic Personality
+Sweep Success
+On the Same Wavelength
+Contactless Precision
