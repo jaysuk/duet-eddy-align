@@ -102,9 +102,10 @@ npm run release -- 0.16.0 --push   # bumps plugin.json + package.json, commits, 
 
 The pushed tag triggers `.github/workflows/release.yml`, which builds the ZIP against DWC and
 publishes a GitHub Release with the ZIP attached, a generated title (a pun from
-`scripts/release-titles.txt`), and Conventional-Commit release notes (the shared generator in
-`dwc-plugin-runtime`) plus an install-instructions footer (`scripts/release-footer.mjs`). That footer
-also carries the machine-readable marker `src/model/updateCheck.ts`'s in-app update checker reads.
+`scripts/release-titles.txt`), and release notes (the version's `CHANGELOG.md` section, drafted for you by
+`npm run release`, with the Conventional-Commit list collapsed under it) plus an install-instructions footer.
+The workflow is the shared one in [jaysuk/dwc-plugin-workflows](https://github.com/jaysuk/dwc-plugin-workflows);
+its footer also carries the machine-readable marker `src/model/updateCheck.ts`'s in-app update checker reads.
 
 ## License
 
